@@ -142,6 +142,8 @@ async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dic
             json=doc
         )
 
+        print(response.status_code)
+        print(response.text)
         if response and response.status_code in (204, 200, 201):
             return {'success': True}
         else:
@@ -170,7 +172,7 @@ class WatchedAdjudicationPoller:
     The poll datetime is stored in the healthKERI database's watched_poll table.
     """
 
-    def __init__(self, hby: Habery, essr: APIClient, db, poll_interval: float = 30.0, check_interval: float = 30.0):
+    def __init__(self, hby: Habery, essr: APIClient, db, poll_interval: float = 30.0):
         """
         Initialize the WatchedAdjudicationPoller.
 
@@ -179,13 +181,12 @@ class WatchedAdjudicationPoller:
             essr: APIClient instance for interacting with healthKERI API
             db: Database instance with watched_poll table
             poll_interval: Polling interval in seconds (default: 30 seconds)
-            check_interval: Timer interval for checking adjudications loop (default: 0.5 seconds)
+
         """
         self.hby = hby
         self.essr = essr
         self.db = db
         self.poll_interval = poll_interval
-        self.check_interval = check_interval
         self.query_done = True
         self._task = None
         self._running = False
@@ -195,7 +196,7 @@ class WatchedAdjudicationPoller:
         Main asyncio loop that polls for adjudications on a timer.
 
         This method:
-        1. Runs in an infinite loop with check_interval sleep
+        1. Runs in an infinite loop with poll_interval sleep
         2. Reads the last poll datetime from watched_poll database
         3. Queries ESSR for adjudications after that datetime
         4. For each adjudication, checks if local state is out of sync
@@ -205,12 +206,12 @@ class WatchedAdjudicationPoller:
         This method should be run as an asyncio task.
         """
         self._running = True
-        logger.info(f"WatchedAdjudicationPoller: Starting with check_interval={self.check_interval}s")
+        logger.info(f"WatchedAdjudicationPoller: Starting with poll_interval={self.poll_interval}s")
 
         while self._running:
             try:
-                # Sleep for check_interval before polling
-                await asyncio.sleep(self.check_interval)
+                # Sleep for poll_interval before polling
+                await asyncio.sleep(self.poll_interval)
 
                 # Check if we have necessary resources
                 if not self.db:
@@ -371,7 +372,7 @@ class ObvsSocketListener:
     (datetime > last_check) and calls add_watched_identifier for each new entry.
     """
 
-    def __init__(self, hby: Habery, essr: APIClient, db, socket_path: str, check_interval: float = 0.5):
+    def __init__(self, hby: Habery, essr: APIClient, db, socket_path: str, poll_interval: float = 0.5):
         """
         Initialize the ObvsSocketListener.
 
@@ -380,14 +381,14 @@ class ObvsSocketListener:
             essr: APIClient instance for interacting with healthKERI API
             db: Database instance with watched_poll table
             socket_path: Path to Unix Domain Socket (e.g., /tmp/sentinel_name.sock)
-            check_interval: Timer interval for checking connections (default: 0.5 seconds)
+            poll_interval: Timer interval for checking connections (default: 0.5 seconds)
         """
         self.hby = hby
         self.psr = parsing.Parser(kvy=self.hby.kvy, rvy=self.hby.rvy, local=True)
         self.essr = essr
         self.db = db
         self.socket_path = socket_path
-        self.check_interval = check_interval
+        self.poll_interval = poll_interval
         self._server = None
         self._task = None
         self._running = False
@@ -422,7 +423,7 @@ class ObvsSocketListener:
 
             # Run server loop
             while self._running:
-                await asyncio.sleep(self.check_interval)
+                await asyncio.sleep(self.poll_interval)
 
                 # Clean up finished connection tasks
                 self._connection_tasks = {task for task in self._connection_tasks if not task.done()}
@@ -500,6 +501,8 @@ class ObvsSocketListener:
             logger.debug(f"ObvsSocketListener: Received {len(data)} bytes from {peer}")
 
             # Check and add new obvs entries
+            self.hby.db.obvs.trim()
+
             self.psr.parseOne(data)
             await self._check_and_add_obvs()
 

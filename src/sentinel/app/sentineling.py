@@ -74,7 +74,7 @@ def setup_hk(name: str, alias: str, base: str, bran: str, uxd: bool, port: int) 
         hab=hab
     )
 
-    poller = WatchedAdjudicationPoller(hby=hby, essr=essr, db=db, poll_interval=5.0, check_interval=5.0)
+    poller = WatchedAdjudicationPoller(hby=hby, essr=essr, db=db, poll_interval=15.0)
 
     services.append(poller)
 
@@ -85,7 +85,7 @@ def setup_hk(name: str, alias: str, base: str, bran: str, uxd: bool, port: int) 
             essr=essr,
             db=db,
             socket_path=socket_path,
-            check_interval=0.5
+            poll_interval=0.5
         )
         services.append(socket_listener)
 
