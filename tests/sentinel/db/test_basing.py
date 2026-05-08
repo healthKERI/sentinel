@@ -2,9 +2,10 @@
 """
 Unit tests for sentinel.db.basing module
 """
+
 import tempfile
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, patch
 
 from sentinel.db.basing import SentinelBaser
 
@@ -18,7 +19,7 @@ class TestSentinelBaser(unittest.TestCase):
         self.assertEqual(SentinelBaser.AltTailDirPath, ".keri/hk")
         self.assertEqual(SentinelBaser.TempPrefix, "hk")
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_default_parameters(self, mock_super_init):
         """Test initialization with default parameters"""
         mock_super_init.return_value = None
@@ -30,12 +31,10 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Verify parent __init__ called with defaults
         mock_super_init.assert_called_once_with(
-            name="sentinel",
-            headDirPath=None,
-            reopen=True
+            name="sentinel", headDirPath=None, reopen=True
         )
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_custom_name(self, mock_super_init):
         """Test initialization with custom name"""
         mock_super_init.return_value = None
@@ -47,12 +46,10 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Verify parent __init__ called with custom name
         mock_super_init.assert_called_once_with(
-            name="custom_sentinel",
-            headDirPath=None,
-            reopen=True
+            name="custom_sentinel", headDirPath=None, reopen=True
         )
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_custom_head_dir_path(self, mock_super_init):
         """Test initialization with custom headDirPath"""
         mock_super_init.return_value = None
@@ -65,12 +62,10 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Verify parent __init__ called with custom path
         mock_super_init.assert_called_once_with(
-            name="sentinel",
-            headDirPath=custom_path,
-            reopen=True
+            name="sentinel", headDirPath=custom_path, reopen=True
         )
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_reopen_false(self, mock_super_init):
         """Test initialization with reopen=False"""
         mock_super_init.return_value = None
@@ -82,35 +77,27 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Verify parent __init__ called with reopen=False
         mock_super_init.assert_called_once_with(
-            name="sentinel",
-            headDirPath=None,
-            reopen=False
+            name="sentinel", headDirPath=None, reopen=False
         )
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_all_custom_parameters(self, mock_super_init):
         """Test initialization with all custom parameters"""
         mock_super_init.return_value = None
         custom_path = "/custom/path"
         custom_name = "test_sentinel"
 
-        baser = SentinelBaser(
-            name=custom_name,
-            headDirPath=custom_path,
-            reopen=False
-        )
+        baser = SentinelBaser(name=custom_name, headDirPath=custom_path, reopen=False)
 
         # Verify watched_poll initialized to None
         self.assertIsNone(baser.watched_poll)
 
         # Verify parent __init__ called with all custom params
         mock_super_init.assert_called_once_with(
-            name=custom_name,
-            headDirPath=custom_path,
-            reopen=False
+            name=custom_name, headDirPath=custom_path, reopen=False
         )
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_with_extra_kwargs(self, mock_super_init):
         """Test initialization with extra keyword arguments"""
         mock_super_init.return_value = None
@@ -120,7 +107,7 @@ class TestSentinelBaser(unittest.TestCase):
             headDirPath="/test/path",
             reopen=True,
             readonly=True,
-            mdbEnvFlags=0x20000
+            mdbEnvFlags=0x20000,
         )
 
         # Verify watched_poll initialized to None
@@ -132,12 +119,12 @@ class TestSentinelBaser(unittest.TestCase):
             headDirPath="/test/path",
             reopen=True,
             readonly=True,
-            mdbEnvFlags=0x20000
+            mdbEnvFlags=0x20000,
         )
 
-    @patch('sentinel.db.basing.subing.CesrSuber')
-    @patch('sentinel.db.basing.dbing.LMDBer.reopen')
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.subing.CesrSuber")
+    @patch("sentinel.db.basing.dbing.LMDBer.reopen")
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_reopen(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class):
         """Test reopen method"""
         mock_super_init.return_value = None
@@ -163,12 +150,13 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify CesrSuber was created with correct parameters
         mock_cesr_suber_class.assert_called_once()
         call_kwargs = mock_cesr_suber_class.call_args[1]
-        self.assertEqual(call_kwargs['db'], baser)
-        self.assertEqual(call_kwargs['subkey'], 'watched.')
+        self.assertEqual(call_kwargs["db"], baser)
+        self.assertEqual(call_kwargs["subkey"], "watched.")
 
         # Verify klas parameter is core.Dater
         from keri.core import coring
-        self.assertEqual(call_kwargs['klas'], coring.Dater)
+
+        self.assertEqual(call_kwargs["klas"], coring.Dater)
 
         # Verify watched_poll was set
         self.assertEqual(baser.watched_poll, mock_suber)
@@ -176,10 +164,12 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify return value is env
         self.assertEqual(result, mock_env)
 
-    @patch('sentinel.db.basing.subing.CesrSuber')
-    @patch('sentinel.db.basing.dbing.LMDBer.reopen')
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
-    def test_reopen_with_kwargs(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class):
+    @patch("sentinel.db.basing.subing.CesrSuber")
+    @patch("sentinel.db.basing.dbing.LMDBer.reopen")
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
+    def test_reopen_with_kwargs(
+        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class
+    ):
         """Test reopen method with keyword arguments"""
         mock_super_init.return_value = None
         mock_env = Mock()
@@ -204,10 +194,12 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify return value is env
         self.assertEqual(result, mock_env)
 
-    @patch('sentinel.db.basing.subing.CesrSuber')
-    @patch('sentinel.db.basing.dbing.LMDBer.reopen')
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
-    def test_reopen_replaces_existing_watched_poll(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class):
+    @patch("sentinel.db.basing.subing.CesrSuber")
+    @patch("sentinel.db.basing.dbing.LMDBer.reopen")
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
+    def test_reopen_replaces_existing_watched_poll(
+        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class
+    ):
         """Test that reopen replaces existing watched_poll"""
         mock_super_init.return_value = None
         mock_env = Mock()
@@ -232,7 +224,7 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify CesrSuber was called twice
         self.assertEqual(mock_cesr_suber_class.call_count, 2)
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_inheritance(self, mock_super_init):
         """Test that SentinelBaser inherits from LMDBer"""
         mock_super_init.return_value = None
@@ -243,10 +235,12 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify inheritance
         self.assertIsInstance(baser, dbing.LMDBer)
 
-    @patch('sentinel.db.basing.subing.CesrSuber')
-    @patch('sentinel.db.basing.dbing.LMDBer.reopen')
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
-    def test_watched_poll_suber_configuration(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class):
+    @patch("sentinel.db.basing.subing.CesrSuber")
+    @patch("sentinel.db.basing.dbing.LMDBer.reopen")
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
+    def test_watched_poll_suber_configuration(
+        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class
+    ):
         """Test watched_poll suber is configured with correct subkey"""
         mock_super_init.return_value = None
         mock_env = Mock()
@@ -262,10 +256,10 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Verify subkey is 'watched.' (with dot suffix)
         call_kwargs = mock_cesr_suber_class.call_args[1]
-        self.assertEqual(call_kwargs['subkey'], 'watched.')
-        self.assertTrue(call_kwargs['subkey'].endswith('.'))
+        self.assertEqual(call_kwargs["subkey"], "watched.")
+        self.assertTrue(call_kwargs["subkey"].endswith("."))
 
-    @patch('sentinel.db.basing.dbing.LMDBer.__init__')
+    @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_init_preserves_watched_poll_none(self, mock_super_init):
         """Test that __init__ sets watched_poll to None before parent init"""
         mock_super_init.return_value = None
@@ -290,6 +284,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures"""
         import shutil
+
         try:
             shutil.rmtree(self.temp_dir)
         except Exception:
@@ -299,9 +294,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
         """Test creating an actual database and reopening it"""
         # Create baser with temp directory
         baser = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=True
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=True
         )
 
         try:
@@ -310,6 +303,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
 
             # Verify it's the correct type
             from keri.db import subing
+
             self.assertIsInstance(baser.watched_poll, subing.CesrSuber)
 
             # Verify it has a database reference
@@ -326,9 +320,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
         """Test that reopening updates watched_poll"""
         # Create baser with temp directory
         baser = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=False
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=False
         )
 
         try:
@@ -346,6 +338,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
 
             # Verify it's the correct type
             from keri.db import subing
+
             self.assertIsInstance(baser.watched_poll, subing.CesrSuber)
 
         finally:
@@ -359,9 +352,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
         """Test basic operations on watched_poll suber"""
         # Create baser with temp directory
         baser = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=True
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=True
         )
 
         try:
@@ -394,14 +385,11 @@ class TestSentinelBaserIntegration(unittest.TestCase):
         """Test storing and retrieving multiple keys in watched_poll"""
         # Create baser with temp directory
         baser = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=True
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=True
         )
 
         try:
             from keri.core import coring
-            from datetime import datetime, timezone
             import time
 
             # Create multiple Dater objects using current time
@@ -435,9 +423,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
 
         # Create and populate database
         baser1 = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=True
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=True
         )
 
         dater_dts = None
@@ -450,9 +436,7 @@ class TestSentinelBaserIntegration(unittest.TestCase):
 
         # Reopen database and verify data persists
         baser2 = SentinelBaser(
-            name="test_sentinel",
-            headDirPath=self.temp_dir,
-            reopen=True
+            name="test_sentinel", headDirPath=self.temp_dir, reopen=True
         )
 
         try:
@@ -463,5 +447,5 @@ class TestSentinelBaserIntegration(unittest.TestCase):
             baser2.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -2,19 +2,19 @@
 """
 Unit tests for sentinel.core.watching module
 """
+
 import asyncio
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch, AsyncMock, call
+from unittest.mock import Mock, patch, AsyncMock
 
 from sentinel.core.watching import (
     fetch_account_watched,
     delete_account_watcher,
     add_watched_identifier,
     WatchedAdjudicationPoller,
-    ObvsSocketListener
+    ObvsSocketListener,
 )
 
 
@@ -31,8 +31,8 @@ class TestFetchAccountWatched(unittest.IsolatedAsyncioTestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            'watchers': [{'aid': 'ETest123', 'name': 'Test'}],
-            'total': 1
+            "watchers": [{"aid": "ETest123", "name": "Test"}],
+            "total": 1,
         }
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
@@ -42,77 +42,69 @@ class TestFetchAccountWatched(unittest.IsolatedAsyncioTestCase):
 
         # Verify API call
         self.mock_essr.request.assert_called_once_with(
-            path="/watched?page=0&page_size=10",
-            method="GET"
+            path="/watched?page=0&page_size=10", method="GET"
         )
 
         # Verify result
-        self.assertTrue(result['success'])
-        self.assertEqual(result['total'], 1)
-        self.assertEqual(len(result['watchers']), 1)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(len(result["watchers"]), 1)
 
     async def test_fetch_account_watched_with_pagination(self):
         """Test fetch with custom page and page_size"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {'watchers': [], 'total': 0}
+        mock_response.json.return_value = {"watchers": [], "total": 0}
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call with custom pagination
-        result = await fetch_account_watched(
-            essr=self.mock_essr,
-            page=2,
-            page_size=25
-        )
+        result = await fetch_account_watched(essr=self.mock_essr, page=2, page_size=25)
 
         # Verify API call includes pagination
         self.mock_essr.request.assert_called_once_with(
-            path="/watched?page=2&page_size=25",
-            method="GET"
+            path="/watched?page=2&page_size=25", method="GET"
         )
 
-        self.assertTrue(result['success'])
+        self.assertTrue(result["success"])
 
     async def test_fetch_account_watched_with_filter(self):
         """Test fetch with filter term"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {'watchers': [], 'total': 0}
+        mock_response.json.return_value = {"watchers": [], "total": 0}
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call with filter
         result = await fetch_account_watched(
-            essr=self.mock_essr,
-            filter_term="test filter"
+            essr=self.mock_essr, filter_term="test filter"
         )
 
         # Verify API call includes encoded filter
         call_args = self.mock_essr.request.call_args[1]
-        self.assertIn("filter=test%20filter", call_args['path'])
-        self.assertTrue(result['success'])
+        self.assertIn("filter=test%20filter", call_args["path"])
+        self.assertTrue(result["success"])
 
     async def test_fetch_account_watched_with_order(self):
         """Test fetch with order parameters"""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {'watchers': [], 'total': 0}
+        mock_response.json.return_value = {"watchers": [], "total": 0}
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call with order
         result = await fetch_account_watched(
-            essr=self.mock_essr,
-            order=['+name', '-eid']
+            essr=self.mock_essr, order=["+name", "-eid"]
         )
 
         # Verify API call includes order params
         call_args = self.mock_essr.request.call_args[1]
-        path = call_args['path']
+        path = call_args["path"]
         self.assertIn("order=%2Bname", path)
         self.assertIn("order=-eid", path)
-        self.assertTrue(result['success'])
+        self.assertTrue(result["success"])
 
     async def test_fetch_account_watched_api_error(self):
         """Test fetch with API error response"""
@@ -125,9 +117,9 @@ class TestFetchAccountWatched(unittest.IsolatedAsyncioTestCase):
         result = await fetch_account_watched(essr=self.mock_essr)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertIn('API error', result['error'])
-        self.assertIn('500', result['error'])
+        self.assertFalse(result["success"])
+        self.assertIn("API error", result["error"])
+        self.assertIn("500", result["error"])
 
     async def test_fetch_account_watched_no_response(self):
         """Test fetch with no response"""
@@ -137,21 +129,19 @@ class TestFetchAccountWatched(unittest.IsolatedAsyncioTestCase):
         result = await fetch_account_watched(essr=self.mock_essr)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertIn('No response', result['error'])
+        self.assertFalse(result["success"])
+        self.assertIn("No response", result["error"])
 
     async def test_fetch_account_watched_exception(self):
         """Test fetch with exception during request"""
-        self.mock_essr.request = AsyncMock(
-            side_effect=Exception("Connection error")
-        )
+        self.mock_essr.request = AsyncMock(side_effect=Exception("Connection error"))
 
         # Call function
         result = await fetch_account_watched(essr=self.mock_essr)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], "Connection error")
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Connection error")
 
 
 class TestDeleteAccountWatcher(unittest.IsolatedAsyncioTestCase):
@@ -170,38 +160,31 @@ class TestDeleteAccountWatcher(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call function
-        result = await delete_account_watcher(
-            essr=self.mock_essr,
-            eid=self.eid
-        )
+        result = await delete_account_watcher(essr=self.mock_essr, eid=self.eid)
 
         # Verify API call
         self.mock_essr.request.assert_called_once_with(
-            path=f"/watched/{self.eid}",
-            method="DELETE"
+            path=f"/watched/{self.eid}", method="DELETE"
         )
 
         # Verify result
-        self.assertTrue(result['success'])
-        self.assertNotIn('error', result)
+        self.assertTrue(result["success"])
+        self.assertNotIn("error", result)
 
     async def test_delete_account_watcher_error_with_description(self):
         """Test deletion with error response containing description"""
         mock_response = Mock()
         mock_response.status_code = 404
-        mock_response.json.return_value = {'description': 'Watcher not found'}
+        mock_response.json.return_value = {"description": "Watcher not found"}
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call function
-        result = await delete_account_watcher(
-            essr=self.mock_essr,
-            eid=self.eid
-        )
+        result = await delete_account_watcher(essr=self.mock_essr, eid=self.eid)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Watcher not found')
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Watcher not found")
 
     async def test_delete_account_watcher_error_without_json(self):
         """Test deletion with error response without JSON"""
@@ -212,44 +195,33 @@ class TestDeleteAccountWatcher(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Call function
-        result = await delete_account_watcher(
-            essr=self.mock_essr,
-            eid=self.eid
-        )
+        result = await delete_account_watcher(essr=self.mock_essr, eid=self.eid)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Status 500')
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Status 500")
 
     async def test_delete_account_watcher_no_response(self):
         """Test deletion with no response"""
         self.mock_essr.request = AsyncMock(return_value=None)
 
         # Call function
-        result = await delete_account_watcher(
-            essr=self.mock_essr,
-            eid=self.eid
-        )
+        result = await delete_account_watcher(essr=self.mock_essr, eid=self.eid)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Unknown error')
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Unknown error")
 
     async def test_delete_account_watcher_exception(self):
         """Test deletion with exception"""
-        self.mock_essr.request = AsyncMock(
-            side_effect=Exception("Network timeout")
-        )
+        self.mock_essr.request = AsyncMock(side_effect=Exception("Network timeout"))
 
         # Call function
-        result = await delete_account_watcher(
-            essr=self.mock_essr,
-            eid=self.eid
-        )
+        result = await delete_account_watcher(essr=self.mock_essr, eid=self.eid)
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Network timeout')
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Network timeout")
 
 
 class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
@@ -285,8 +257,8 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
         mock_response.text = "Created"
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
-        with patch('sentinel.core.watching.random.choice', return_value="EWitness123"):
-            with patch('sentinel.core.watching.kering.Schemes') as mock_schemes:
+        with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+            with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
                 mock_schemes.https = "https"
                 mock_schemes.http = "http"
 
@@ -295,20 +267,20 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
                     hby=self.mock_hby,
                     essr=self.mock_essr,
                     watched_aid=self.watched_aid,
-                    alias=self.alias
+                    alias=self.alias,
                 )
 
         # Verify API call
         self.mock_essr.request.assert_called_once()
         call_kwargs = self.mock_essr.request.call_args[1]
-        self.assertEqual(call_kwargs['path'], "/watched")
-        self.assertEqual(call_kwargs['method'], "POST")
-        self.assertEqual(call_kwargs['json']['name'], self.alias)
-        self.assertEqual(call_kwargs['json']['aid'], self.watched_aid)
-        self.assertIn('oobi', call_kwargs['json'])
+        self.assertEqual(call_kwargs["path"], "/watched")
+        self.assertEqual(call_kwargs["method"], "POST")
+        self.assertEqual(call_kwargs["json"]["name"], self.alias)
+        self.assertEqual(call_kwargs["json"]["aid"], self.watched_aid)
+        self.assertIn("oobi", call_kwargs["json"])
 
         # Verify result
-        self.assertTrue(result['success'])
+        self.assertTrue(result["success"])
 
     async def test_add_watched_identifier_success_http_fallback(self):
         """Test successful add with HTTP witness URL fallback"""
@@ -333,8 +305,8 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
         mock_response.text = "OK"
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
-        with patch('sentinel.core.watching.random.choice', return_value="EWitness123"):
-            with patch('sentinel.core.watching.kering.Schemes') as mock_schemes:
+        with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+            with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
                 mock_schemes.https = "https"
                 mock_schemes.http = "http"
 
@@ -343,11 +315,11 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
                     hby=self.mock_hby,
                     essr=self.mock_essr,
                     watched_aid=self.watched_aid,
-                    alias=self.alias
+                    alias=self.alias,
                 )
 
         # Verify result
-        self.assertTrue(result['success'])
+        self.assertTrue(result["success"])
 
     async def test_add_watched_identifier_not_in_kevers(self):
         """Test add when identifier not found in kevers"""
@@ -358,12 +330,12 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
             hby=self.mock_hby,
             essr=self.mock_essr,
             watched_aid=self.watched_aid,
-            alias=self.alias
+            alias=self.alias,
         )
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertIn('not found in KERI database', result['error'])
+        self.assertFalse(result["success"])
+        self.assertIn("not found in KERI database", result["error"])
 
     async def test_add_watched_identifier_no_witnesses(self):
         """Test add when identifier has no witnesses"""
@@ -377,12 +349,12 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
             hby=self.mock_hby,
             essr=self.mock_essr,
             watched_aid=self.watched_aid,
-            alias=self.alias
+            alias=self.alias,
         )
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertIn('does not have witnesses', result['error'])
+        self.assertFalse(result["success"])
+        self.assertIn("does not have witnesses", result["error"])
 
     async def test_add_watched_identifier_no_witness_urls(self):
         """Test add when witness has no HTTP endpoint"""
@@ -392,18 +364,18 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
         self.mock_hby.kevers = {self.watched_aid: mock_kever}
         self.mock_hby.db.locs.getItemIter = Mock(return_value=[])
 
-        with patch('sentinel.core.watching.random.choice', return_value="EWitness123"):
+        with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
             # Call function
             result = await add_watched_identifier(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 watched_aid=self.watched_aid,
-                alias=self.alias
+                alias=self.alias,
             )
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertIn('no http endpoint', result['error'])
+        self.assertFalse(result["success"])
+        self.assertIn("no http endpoint", result["error"])
 
     async def test_add_watched_identifier_api_error(self):
         """Test add with API error response"""
@@ -425,11 +397,11 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
         mock_response = Mock()
         mock_response.status_code = 400
         mock_response.text = "Bad Request"
-        mock_response.json.return_value = {'description': 'Invalid data'}
+        mock_response.json.return_value = {"description": "Invalid data"}
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
-        with patch('sentinel.core.watching.random.choice', return_value="EWitness123"):
-            with patch('sentinel.core.watching.kering.Schemes') as mock_schemes:
+        with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+            with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
                 mock_schemes.https = "https"
                 mock_schemes.http = "http"
 
@@ -438,12 +410,12 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
                     hby=self.mock_hby,
                     essr=self.mock_essr,
                     watched_aid=self.watched_aid,
-                    alias=self.alias
+                    alias=self.alias,
                 )
 
         # Verify error result
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Invalid data')
+        self.assertFalse(result["success"])
+        self.assertEqual(result["error"], "Invalid data")
 
 
 class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
@@ -460,10 +432,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     def test_init(self):
         """Test poller initialization"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=15.0
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=15.0
         )
 
         self.assertEqual(poller.hby, self.mock_hby)
@@ -477,10 +446,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_start(self):
         """Test starting the poller"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.1
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
         )
 
         task = poller.start()
@@ -500,10 +466,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_stop(self):
         """Test stopping the poller"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.1
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
         )
 
         task = poller.start()
@@ -523,10 +486,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_run_no_db(self):
         """Test run with no database"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=None,
-            poll_interval=0.01
+            hby=self.mock_hby, essr=self.mock_essr, db=None, poll_interval=0.01
         )
 
         # Run briefly and stop
@@ -549,10 +509,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_db.watched_poll = None
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.01
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.01
         )
 
         # Run briefly and stop
@@ -578,37 +535,37 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         mock_response.status_code = 200
         mock_response.text = "OK"
         mock_response.json.return_value = {
-            'adjudications': [
-                {'watched_aid': 'ETest123', 'sn': '5'}
-            ]
+            "adjudications": [{"watched_aid": "ETest123", "sn": "5"}]
         }
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         # Setup kever
         mock_kever = Mock()
-        mock_kever.pre = 'ETest123'
+        mock_kever.pre = "ETest123"
         mock_sner = Mock()
         mock_sner.num = 3
         mock_kever.sner = mock_sner
-        self.mock_hby.kevers = {'ETest123': mock_kever}
+        self.mock_hby.kevers = {"ETest123": mock_kever}
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.1
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
         )
 
-        with patch('sentinel.core.watching.Organizer') as mock_org_class:
+        with patch("sentinel.core.watching.Organizer") as mock_org_class:
             mock_org = Mock()
-            mock_org.get.return_value = {'alias': 'TestName'}
+            mock_org.get.return_value = {"alias": "TestName"}
             mock_org_class.return_value = mock_org
 
-            with patch('sentinel.core.watching.remoting.sync_watched_identifier', new_callable=AsyncMock) as mock_sync:
-                with patch('sentinel.core.watching.coring.Dater') as mock_dater_class:
+            with patch(
+                "sentinel.core.watching.remoting.sync_watched_identifier",
+                new_callable=AsyncMock,
+            ) as mock_sync:
+                with patch("sentinel.core.watching.coring.Dater"):
                     # Call the method
-                    await poller._async_poll_adjudications("/adjudications?date=2024-01-01")
+                    await poller._async_poll_adjudications(
+                        "/adjudications?date=2024-01-01"
+                    )
 
         # Verify sync was called
         mock_sync.assert_called_once()
@@ -621,10 +578,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=None)
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.1
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
         )
 
         await poller._async_poll_adjudications("/adjudications")
@@ -641,10 +595,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby,
-            essr=self.mock_essr,
-            db=self.mock_db,
-            poll_interval=0.1
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
         )
 
         await poller._async_poll_adjudications("/adjudications")
@@ -666,7 +617,7 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
         self.mock_essr = Mock()
         self.mock_db = Mock()
         self.mock_db.watched_poll = Mock()
-        self.socket_path = tempfile.mktemp(suffix='.sock')
+        self.socket_path = tempfile.mktemp(suffix=".sock")
 
     def tearDown(self):
         """Clean up test fixtures"""
@@ -675,13 +626,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     def test_init(self):
         """Test socket listener initialization"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.5
+                poll_interval=0.5,
             )
 
             self.assertEqual(listener.hby, self.mock_hby)
@@ -696,13 +647,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     async def test_start(self):
         """Test starting the socket listener"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             task = listener.start()
@@ -721,13 +672,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     async def test_stop(self):
         """Test stopping the socket listener"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             task = listener.start()
@@ -746,13 +697,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_connection(self):
         """Test connection handling"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             mock_reader = Mock()
@@ -766,21 +717,21 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     async def test_process_connection(self):
         """Test connection processing"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             # Setup mocks
             mock_reader = AsyncMock()
-            mock_reader.read.side_effect = [b'test data', b'']
+            mock_reader.read.side_effect = [b"test data", b""]
 
             mock_writer = Mock()
-            mock_writer.get_extra_info.return_value = 'test_peer'
+            mock_writer.get_extra_info.return_value = "test_peer"
             mock_writer.close = Mock()
             mock_writer.wait_closed = AsyncMock()
 
@@ -788,7 +739,9 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
             listener.psr.parseOne = Mock()
             listener.hby.db.obvs.trim = Mock()
 
-            with patch.object(listener, '_check_and_add_obvs', new_callable=AsyncMock) as mock_check:
+            with patch.object(
+                listener, "_check_and_add_obvs", new_callable=AsyncMock
+            ) as mock_check:
                 # Call process connection
                 await listener._process_connection(mock_reader, mock_writer)
 
@@ -800,13 +753,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
 
     async def test_check_and_add_obvs_no_db(self):
         """Test obvs checking with no database"""
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=None,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             # Call check method
@@ -818,13 +771,13 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
         """Test obvs checking with no watched_poll table"""
         self.mock_db.watched_poll = None
 
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
             # Call check method
@@ -848,19 +801,21 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
             (("cid1", "aid1", "oid1"), mock_observed)
         ]
 
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
-            with patch('sentinel.core.watching.add_watched_identifier', new_callable=AsyncMock) as mock_add:
-                mock_add.return_value = {'success': True}
+            with patch(
+                "sentinel.core.watching.add_watched_identifier", new_callable=AsyncMock
+            ) as mock_add:
+                mock_add.return_value = {"success": True}
 
-                with patch('sentinel.core.watching.coring.Dater') as mock_dater_class:
+                with patch("sentinel.core.watching.coring.Dater"):
                     # Call check method
                     await listener._check_and_add_obvs()
 
@@ -869,7 +824,7 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
                     hby=self.mock_hby,
                     essr=self.mock_essr,
                     watched_aid="oid1",
-                    alias="TestObvs"
+                    alias="TestObvs",
                 )
 
     async def test_check_and_add_obvs_skip_old_entries(self):
@@ -888,17 +843,19 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
             (("cid1", "aid1", "oid1"), mock_observed)
         ]
 
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
-            with patch('sentinel.core.watching.add_watched_identifier', new_callable=AsyncMock) as mock_add:
-                with patch('sentinel.core.watching.coring.Dater') as mock_dater_class:
+            with patch(
+                "sentinel.core.watching.add_watched_identifier", new_callable=AsyncMock
+            ) as mock_add:
+                with patch("sentinel.core.watching.coring.Dater"):
                     # Call check method
                     await listener._check_and_add_obvs()
 
@@ -919,17 +876,19 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
             (("cid1", "aid1", "oid1"), mock_observed)
         ]
 
-        with patch('sentinel.core.watching.parsing.Parser'):
+        with patch("sentinel.core.watching.parsing.Parser"):
             listener = ObvsSocketListener(
                 hby=self.mock_hby,
                 essr=self.mock_essr,
                 db=self.mock_db,
                 socket_path=self.socket_path,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
 
-            with patch('sentinel.core.watching.add_watched_identifier', new_callable=AsyncMock) as mock_add:
-                with patch('sentinel.core.watching.coring.Dater') as mock_dater_class:
+            with patch(
+                "sentinel.core.watching.add_watched_identifier", new_callable=AsyncMock
+            ) as mock_add:
+                with patch("sentinel.core.watching.coring.Dater"):
                     # Call check method
                     await listener._check_and_add_obvs()
 
@@ -937,5 +896,5 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
                 mock_add.assert_not_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

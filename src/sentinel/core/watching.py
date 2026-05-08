@@ -4,6 +4,7 @@ locksmith.core.watching module
 
 Functions and services for managing healthKERI account watchers
 """
+
 import asyncio
 import os
 import random
@@ -23,11 +24,11 @@ logger = help.ogler.getLogger()
 
 
 async def fetch_account_watched(
-        essr,
-        page: int = 0,
-        page_size: int = 10,
-        filter_term: Optional[str] = None,
-        order: Optional[list] = None
+    essr,
+    page: int = 0,
+    page_size: int = 10,
+    filter_term: Optional[str] = None,
+    order: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Fetch account watchers from the healthKERI API.
@@ -60,23 +61,20 @@ async def fetch_account_watched(
         response = await essr.request(path=path, method="GET")
         if response and response.status_code == 200:
             data = response.json()
-            data['success'] = True
+            data["success"] = True
             return data
         else:
             return {
-                'success': False,
-                'error': f"API error: {response.status_code if response else 'No response'}"
+                "success": False,
+                "error": f"API error: {response.status_code if response else 'No response'}",
             }
 
     except Exception as e:
         logger.error(f"Error fetching watched identifiers: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
 
-async def delete_account_watcher(
-        essr,
-        eid: str
-) -> Dict[str, Any]:
+async def delete_account_watcher(essr, eid: str) -> Dict[str, Any]:
     """
     Delete a watcher from the healthKERI account.
 
@@ -90,75 +88,80 @@ async def delete_account_watcher(
 
     try:
         # APIClient.request is the async method
-        response = await essr.request(
-            path=f"/watched/{eid}",
-            method="DELETE"
-        )
+        response = await essr.request(path=f"/watched/{eid}", method="DELETE")
 
         if response and response.status_code == 204:
-            return {'success': True}
+            return {"success": True}
         else:
             error_msg = "Unknown error"
             if response:
                 try:
                     error_data = response.json()
-                    error_msg = error_data.get('description', str(response.status_code))
+                    error_msg = error_data.get("description", str(response.status_code))
                 except Exception:
                     error_msg = f"Status {response.status_code}"
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
 
     except Exception as e:
         logger.error(f"Error deleting account watcher: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
+
 
 async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dict:
 
     try:
         # Verify watched identifier is in kevers
         if watched_aid not in hby.kevers:
-            raise ValueError(f"Watched identifier {watched_aid} not found in KERI database")
+            raise ValueError(
+                f"Watched identifier {watched_aid} not found in KERI database"
+            )
 
         kever = hby.kevers[watched_aid]
 
         # Verify watched identifier has witnesses
         if not kever.wits:
-            raise ValueError(f"Watched identifier {watched_aid} does not have witnesses")
+            raise ValueError(
+                f"Watched identifier {watched_aid} does not have witnesses"
+            )
 
         wit = random.choice(kever.wits)
-        urls = {keys[1]: loc.url for keys, loc in
-                hby.db.locs.getItemIter(keys=(wit,)) if loc.url}
+        urls = {
+            keys[1]: loc.url
+            for keys, loc in hby.db.locs.getItemIter(keys=(wit,))
+            if loc.url
+        }
         if not urls:
             raise ValueError(f"unable to query witness {wit}, no http endpoint")
 
-        url = urls[kering.Schemes.https] if kering.Schemes.https in urls else urls[kering.Schemes.http]
+        url = (
+            urls[kering.Schemes.https]
+            if kering.Schemes.https in urls
+            else urls[kering.Schemes.http]
+        )
         oobi = f"{url.rstrip("/")}/oobi/{kever.serder.pre}/witness"
 
-        doc = {'name': alias, 'aid': watched_aid, 'oobi': oobi}
+        doc = {"name": alias, "aid": watched_aid, "oobi": oobi}
 
         # APIClient.request is the async method
-        response = await essr.request(
-            path=f"/watched",
-            method="POST",
-            json=doc
-        )
+        response = await essr.request(path="/watched", method="POST", json=doc)
 
         print(response.status_code)
         print(response.text)
         if response and response.status_code in (204, 200, 201):
-            return {'success': True}
+            return {"success": True}
         else:
             error_msg = "Unknown error"
             if response:
                 try:
                     error_data = response.json()
-                    error_msg = error_data.get('description', str(response.status_code))
+                    error_msg = error_data.get("description", str(response.status_code))
                 except Exception:
                     error_msg = f"Status {response.status_code}"
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
 
     except Exception as e:
         logger.error(f"Error deleting account watcher: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
 
 class WatchedAdjudicationPoller:
@@ -206,7 +209,9 @@ class WatchedAdjudicationPoller:
         This method should be run as an asyncio task.
         """
         self._running = True
-        logger.info(f"WatchedAdjudicationPoller: Starting with poll_interval={self.poll_interval}s")
+        logger.info(
+            f"WatchedAdjudicationPoller: Starting with poll_interval={self.poll_interval}s"
+        )
 
         while self._running:
             try:
@@ -215,16 +220,22 @@ class WatchedAdjudicationPoller:
 
                 # Check if we have necessary resources
                 if not self.db:
-                    logger.debug("WatchedAdjudicationPoller: No ESSR or DB available, skipping poll")
+                    logger.debug(
+                        "WatchedAdjudicationPoller: No ESSR or DB available, skipping poll"
+                    )
                     continue
 
                 if not self.db.watched_poll:
-                    logger.debug("WatchedAdjudicationPoller: watched_poll database not available")
+                    logger.debug(
+                        "WatchedAdjudicationPoller: watched_poll database not available"
+                    )
                     continue
 
                 # Skip if previous query still running
                 if not self.query_done:
-                    logger.debug("WatchedAdjudicationPoller: Previous query still running, skipping")
+                    logger.debug(
+                        "WatchedAdjudicationPoller: Previous query still running, skipping"
+                    )
                     continue
 
                 # Get last poll datetime from database
@@ -233,11 +244,17 @@ class WatchedAdjudicationPoller:
                 if last_poll_dater:
                     # Convert Dater to datetime
                     last_poll_dt = datetime.fromisoformat(last_poll_dater.dts)
-                    logger.debug(f"WatchedAdjudicationPoller: Last poll time: {last_poll_dt}")
+                    logger.debug(
+                        f"WatchedAdjudicationPoller: Last poll time: {last_poll_dt}"
+                    )
                 else:
                     # First poll - use a datetime from 1 day ago
-                    last_poll_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-                    logger.debug(f"WatchedAdjudicationPoller: First poll, using {last_poll_dt}")
+                    last_poll_dt = datetime.now(timezone.utc).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
+                    logger.debug(
+                        f"WatchedAdjudicationPoller: First poll, using {last_poll_dt}"
+                    )
 
                 # Query ESSR for adjudications after last poll time
                 # Format datetime for API query (ISO 8601)
@@ -268,7 +285,9 @@ class WatchedAdjudicationPoller:
         self.query_done = False
         try:
             response = await self.essr.request(path=path, method="GET")
-            logger.debug(f"WatchedAdjudicationPoller: Query response status: {response.status_code} - {response.text}")
+            logger.debug(
+                f"WatchedAdjudicationPoller: Query response status: {response.status_code} - {response.text}"
+            )
             if not response or response.status_code != 200:
                 logger.error(
                     f"WatchedAdjudicationPoller: API error: "
@@ -277,23 +296,27 @@ class WatchedAdjudicationPoller:
                 return
 
             data = response.json()
-            adjudications = data.get('adjudications', [])
+            adjudications = data.get("adjudications", [])
 
             if not adjudications:
                 logger.info("WatchedAdjudicationPoller: No new adjudications")
             else:
-                logger.info(f"WatchedAdjudicationPoller: Found {len(adjudications)} adjudications")
+                logger.info(
+                    f"WatchedAdjudicationPoller: Found {len(adjudications)} adjudications"
+                )
 
             org = Organizer(hby=self.hby)
 
             # Process each adjudication
             for adj in adjudications:
                 try:
-                    watched_aid = adj.get('watched_aid')
-                    remote_sn = int(adj.get('sn', 0))
+                    watched_aid = adj.get("watched_aid")
+                    remote_sn = int(adj.get("sn", 0))
 
                     if not watched_aid:
-                        logger.warning("WatchedAdjudicationPoller: Adjudication missing aid, skipping")
+                        logger.warning(
+                            "WatchedAdjudicationPoller: Adjudication missing aid, skipping"
+                        )
                         continue
 
                     # Check local state
@@ -307,7 +330,7 @@ class WatchedAdjudicationPoller:
                         continue
 
                     contact = org.get(pre=watched_aid)
-                    watched_name = contact.get('alias') if contact else watched_aid
+                    watched_name = contact.get("alias") if contact else watched_aid
 
                     local_sn = kever.sner.num
 
@@ -318,7 +341,9 @@ class WatchedAdjudicationPoller:
                             f"local SN {local_sn} < remote SN {remote_sn}"
                         )
 
-                        await remoting.sync_watched_identifier(self.hby, self.essr, kever.pre)
+                        await remoting.sync_watched_identifier(
+                            self.hby, self.essr, kever.pre
+                        )
 
                     else:
                         logger.debug(
@@ -372,7 +397,14 @@ class ObvsSocketListener:
     (datetime > last_check) and calls add_watched_identifier for each new entry.
     """
 
-    def __init__(self, hby: Habery, essr: APIClient, db, socket_path: str, poll_interval: float = 0.5):
+    def __init__(
+        self,
+        hby: Habery,
+        essr: APIClient,
+        db,
+        socket_path: str,
+        poll_interval: float = 0.5,
+    ):
         """
         Initialize the ObvsSocketListener.
 
@@ -411,12 +443,13 @@ class ObvsSocketListener:
             # Remove existing socket file if present
             if os.path.exists(self.socket_path):
                 os.unlink(self.socket_path)
-                logger.debug(f"ObvsSocketListener: Removed existing socket file {self.socket_path}")
+                logger.debug(
+                    f"ObvsSocketListener: Removed existing socket file {self.socket_path}"
+                )
 
             # Create Unix Domain Socket server
             self._server = await asyncio.start_unix_server(
-                self._handle_connection,
-                path=self.socket_path
+                self._handle_connection, path=self.socket_path
             )
 
             logger.info(f"ObvsSocketListener: Server listening on {self.socket_path}")
@@ -426,7 +459,9 @@ class ObvsSocketListener:
                 await asyncio.sleep(self.poll_interval)
 
                 # Clean up finished connection tasks
-                self._connection_tasks = {task for task in self._connection_tasks if not task.done()}
+                self._connection_tasks = {
+                    task for task in self._connection_tasks if not task.done()
+                }
 
         except asyncio.CancelledError:
             logger.info("ObvsSocketListener: Task cancelled")
@@ -453,11 +488,15 @@ class ObvsSocketListener:
             # Remove socket file
             if os.path.exists(self.socket_path):
                 os.unlink(self.socket_path)
-                logger.debug(f"ObvsSocketListener: Removed socket file {self.socket_path}")
+                logger.debug(
+                    f"ObvsSocketListener: Removed socket file {self.socket_path}"
+                )
 
             # Cancel all connection tasks
             if self._connection_tasks:
-                logger.debug(f"ObvsSocketListener: Cancelling {len(self._connection_tasks)} connection tasks")
+                logger.debug(
+                    f"ObvsSocketListener: Cancelling {len(self._connection_tasks)} connection tasks"
+                )
                 for task in self._connection_tasks:
                     task.cancel()
 
@@ -467,7 +506,9 @@ class ObvsSocketListener:
         except Exception as e:
             logger.exception(f"ObvsSocketListener: Error during cleanup: {e}")
 
-    async def _handle_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def _handle_connection(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
         """
         Handle a new connection by creating a task for it.
 
@@ -478,7 +519,9 @@ class ObvsSocketListener:
         task = asyncio.create_task(self._process_connection(reader, writer))
         self._connection_tasks.add(task)
 
-    async def _process_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def _process_connection(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
         """
         Process a single connection: read data and check obvs.
 
@@ -486,7 +529,7 @@ class ObvsSocketListener:
             reader: StreamReader for reading from the connection
             writer: StreamWriter for writing to the connection
         """
-        peer = writer.get_extra_info('peername')
+        peer = writer.get_extra_info("peername")
         logger.info(f"ObvsSocketListener: New connection from {peer}")
 
         try:
@@ -507,7 +550,9 @@ class ObvsSocketListener:
             await self._check_and_add_obvs()
 
         except Exception as e:
-            logger.exception(f"ObvsSocketListener: Error processing connection from {peer}: {e}")
+            logger.exception(
+                f"ObvsSocketListener: Error processing connection from {peer}: {e}"
+            )
         finally:
             try:
                 writer.close()
@@ -526,18 +571,20 @@ class ObvsSocketListener:
         try:
             # Check if we have necessary resources
             if not self.db:
-                logger.warning("ObvsSocketListener: No DB available, skipping obvs check")
+                logger.warning(
+                    "ObvsSocketListener: No DB available, skipping obvs check"
+                )
                 return
 
             if not self.db.watched_poll:
-                logger.warning("ObvsSocketListener: watched_poll database not available")
+                logger.warning(
+                    "ObvsSocketListener: watched_poll database not available"
+                )
                 return
 
-            if not hasattr(self.hby.db, 'obvs'):
+            if not hasattr(self.hby.db, "obvs"):
                 logger.warning("ObvsSocketListener: obvs database not available")
                 return
-
-
 
             # Get last check timestamp from database
             last_check_dater = self.db.watched_poll.get(keys=("obvs_last",))
@@ -548,7 +595,9 @@ class ObvsSocketListener:
             else:
                 # First check - use epoch
                 last_check_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
-                logger.debug(f"ObvsSocketListener: First check, using epoch {last_check_dt}")
+                logger.debug(
+                    f"ObvsSocketListener: First check, using epoch {last_check_dt}"
+                )
 
             # Iterate through obvs entries
             new_count = 0
@@ -558,8 +607,10 @@ class ObvsSocketListener:
             for (cid, aid, oid), observed in self.hby.db.obvs.getItemIter():
                 try:
                     # Check if entry has datetime and is newer than last check
-                    if not hasattr(observed, 'datetime') or not observed.datetime:
-                        logger.debug(f"ObvsSocketListener: Skipping obvs entry without datetime - oid={oid}")
+                    if not hasattr(observed, "datetime") or not observed.datetime:
+                        logger.debug(
+                            f"ObvsSocketListener: Skipping obvs entry without datetime - oid={oid}"
+                        )
                         continue
 
                     observed_dt = datetime.fromisoformat(observed.datetime)
@@ -572,15 +623,15 @@ class ObvsSocketListener:
                         )
 
                         # Add watched identifier
-                        alias = getattr(observed, 'name', oid)
+                        alias = getattr(observed, "name", oid)
                         result = await add_watched_identifier(
                             hby=self.hby,
                             essr=self.essr,
                             watched_aid=oid,
-                            alias=alias  # type: ignore
+                            alias=alias,  # type: ignore
                         )
 
-                        if result.get('success'):
+                        if result.get("success"):
                             success_count += 1
                             logger.info(
                                 f"ObvsSocketListener: Successfully added watched identifier - "
@@ -588,7 +639,7 @@ class ObvsSocketListener:
                             )
                         else:
                             error_count += 1
-                            error_msg = result.get('error', 'Unknown error')
+                            error_msg = result.get("error", "Unknown error")
                             logger.error(
                                 f"ObvsSocketListener: Failed to add watched identifier - "
                                 f"oid={oid}, alias={alias}, error={error_msg}"
@@ -596,7 +647,9 @@ class ObvsSocketListener:
 
                 except Exception as e:
                     error_count += 1
-                    logger.exception(f"ObvsSocketListener: Error processing obvs entry (oid={oid}): {e}")
+                    logger.exception(
+                        f"ObvsSocketListener: Error processing obvs entry (oid={oid}): {e}"
+                    )
                     continue
 
             # Update last check timestamp to now

@@ -3,7 +3,7 @@
 sentinel.app.sentineling module
 
 """
-import asyncio
+
 from typing import List
 
 from kept.hk.configing import HealthKERIConfig
@@ -19,7 +19,9 @@ class UnsupportedOperation(Exception):
     pass
 
 
-def setup_local(name: str, alias: str, base: str, bran: str, uxd: bool, port: int) -> List:
+def setup_local(
+    name: str, alias: str, base: str, bran: str, uxd: bool, port: int
+) -> List:
     """
     Setup sentinel watcher configuration for KERI local watching.
 
@@ -41,7 +43,9 @@ def setup_local(name: str, alias: str, base: str, bran: str, uxd: bool, port: in
     raise UnsupportedOperation("Local watcher configuration is not supported yet")
 
 
-async def setup_hk(name: str, alias: str, base: str, bran: str, uxd: bool, port: int) -> List:
+async def setup_hk(
+    name: str, alias: str, base: str, bran: str, uxd: bool, port: int
+) -> List:
     """
     Setup sentinel watcher configuration for KERI local watching.
 
@@ -67,17 +71,14 @@ async def setup_hk(name: str, alias: str, base: str, bran: str, uxd: bool, port:
     hby = habbing.Habery(name=sentinel_name, base=base, bran=bran)
     hab = hby.habByName(sentinel_alias)
     if not hab:
-        raise ValueError(f"Sentinel alias for '{alias}' not found in sentinel Habery '{name}'")
+        raise ValueError(
+            f"Sentinel alias for '{alias}' not found in sentinel Habery '{name}'"
+        )
 
     db = SentinelBaser(name=name, headDirPath=base)
 
     config = HealthKERIConfig.get_instance()
-    essr = APIClient(
-        url=config.protected_url,
-        root=config.api_aid,
-        hby=hby,
-        hab=hab
-    )
+    essr = APIClient(url=config.protected_url, root=config.api_aid, hby=hby, hab=hab)
 
     await sync_server_key_state(name, alias, base, bran, essr)
 
@@ -88,11 +89,7 @@ async def setup_hk(name: str, alias: str, base: str, bran: str, uxd: bool, port:
     if uxd:
         socket_path = f"/tmp/sentinel_{hab.pre}.sock"
         socket_listener = ObvsSocketListener(
-            hby=hby,
-            essr=essr,
-            db=db,
-            socket_path=socket_path,
-            poll_interval=0.5
+            hby=hby, essr=essr, db=db, socket_path=socket_path, poll_interval=0.5
         )
         services.append(socket_listener)
 

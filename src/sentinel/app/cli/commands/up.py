@@ -5,6 +5,7 @@ mdc2.app.cli.commands module
 
 Initialize the MDC2 server using the provided auth_key
 """
+
 import argparse
 import json
 
@@ -125,7 +126,11 @@ def up(args):
         dt = helping.nowIso8601()
 
         msgs = bytearray()
-        msgs.extend(server_hab.makeEndRole(eid=server_hab.pre, role=kering.Roles.controller, stamp=dt))
+        msgs.extend(
+            server_hab.makeEndRole(
+                eid=server_hab.pre, role=kering.Roles.controller, stamp=dt
+            )
+        )
         msgs.extend(
             server_hab.makeLocScheme(
                 url=f"{kering.Schemes.http}://{args.host}:{args.port}/",
@@ -156,7 +161,6 @@ def up(args):
             transferable=False,
         )
 
-
     sentinel_org = connecting.Organizer(hby=sentinel_hby)
 
     response = requests.get(config.root_oobi)
@@ -170,7 +174,10 @@ def up(args):
     server_hab.kvy.processEscrows()
     sentinel_hab.kvy.processEscrows()
 
-    if config.root_aid not in server_hby.kevers or config.api_aid not in server_hby.kevers:
+    if (
+        config.root_aid not in server_hby.kevers
+        or config.api_aid not in server_hby.kevers
+    ):
         raise ConfigurationError(
             "Unable to resolve healthKERI root identifiers. Please check your configuration"
         )
@@ -188,7 +195,11 @@ def up(args):
     )
     files = {
         "kel": ("output.bin", bytes(kel), "application/octet-stream"),
-        "delegated_kel": ("output.bin", bytes(delegated_kel), "application/octet-stream"),
+        "delegated_kel": (
+            "output.bin",
+            bytes(delegated_kel),
+            "application/octet-stream",
+        ),
         "doc": ("data.json", json.dumps(data), "application/json"),
     }
 
@@ -199,16 +210,15 @@ def up(args):
     if response.status_code != 201:  # type: ignore
         raise ValueError(f"Error registering server with healthKERI: {response.text}")
 
-
     data = response.json()
 
     # Process witnesses from the response
-    witnesses = data.get('witnesses', [])
+    witnesses = data.get("witnesses", [])
     witness_aids = []
     for witness in witnesses:
-        witness_name = witness['name']
-        witness_eid = witness['eid']
-        witness_oobi = witness['oobi']
+        witness_name = witness["name"]
+        witness_eid = witness["eid"]
+        witness_oobi = witness["oobi"]
 
         witness_aids.append(witness_eid)
 
@@ -229,11 +239,15 @@ def up(args):
 
             # Verify the witness AID is in the kevery
             if witness_eid not in server_hby.kevers:
-                logger.warning(f"Witness {witness_name} ({witness_eid}) not resolved in server kevery")
+                logger.warning(
+                    f"Witness {witness_name} ({witness_eid}) not resolved in server kevery"
+                )
                 continue
 
             if witness_eid not in sentinel_hby.kevers:
-                logger.warning(f"Witness {witness_name} ({witness_eid}) not resolved in sentinel kevery")
+                logger.warning(
+                    f"Witness {witness_name} ({witness_eid}) not resolved in sentinel kevery"
+                )
                 continue
 
             # Create contact for the witness in both haberies
@@ -261,16 +275,20 @@ def up(args):
     # Execute PUT request to update the server
     update_response = requests.put(
         f"{config.unprotected_url}/account/teams/servers/{sentinel_hab.pre}",
-        files=files
+        files=files,
     )
 
     if update_response.status_code != 204:
-        raise ValueError(f"Error updating server with healthKERI: {update_response.text}")
+        raise ValueError(
+            f"Error updating server with healthKERI: {update_response.text}"
+        )
 
     logger.info(f"Successfully updated server {server_alias} with witnesses and tags")
 
     print()
-    print(f"Machine {server_alias} updated successfully with witnesses and tags, please approve in Locksmith to continue")
+    print(
+        f"Machine {server_alias} updated successfully with witnesses and tags, please approve in Locksmith to continue"
+    )
     print(f"    Delegated Server {server_alias}: {server_hab.pre}")
     print(f"    healthKERI Account {sentinel_alias}: {sentinel_hab.pre}")
     print(f"    Watcher {watcher_alias}: {watcher_hab.pre}")
