@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-locksmith.core.watching module
+sentinel.core.watching module
 
 Functions and services for managing healthKERI account watchers
 """
@@ -18,7 +18,7 @@ from keri.app.connecting import Organizer
 from keri.app.habbing import Habery
 from keri.core import coring, parsing
 
-from sentinel.core import remoting
+from sentinel.core import filing, remoting
 
 logger = help.ogler.getLogger()
 
@@ -175,7 +175,14 @@ class WatchedAdjudicationPoller:
     The poll datetime is stored in the healthKERI database's watched_poll table.
     """
 
-    def __init__(self, hby: Habery, essr: APIClient, db, poll_interval: float = 30.0):
+    def __init__(
+        self,
+        hby: Habery,
+        essr: APIClient,
+        db,
+        poll_interval: float = 30.0,
+        export_dir: str = "/usr/local/sentinel",
+    ):
         """
         Initialize the WatchedAdjudicationPoller.
 
@@ -184,12 +191,14 @@ class WatchedAdjudicationPoller:
             essr: APIClient instance for interacting with healthKERI API
             db: Database instance with watched_poll table
             poll_interval: Polling interval in seconds (default: 30 seconds)
+            export_dir: Directory for exporting CESR files (default: /usr/local/sentinel)
 
         """
         self.hby = hby
         self.essr = essr
         self.db = db
         self.poll_interval = poll_interval
+        self.export_dir = export_dir
         self.query_done = True
         self._task = None
         self._running = False
@@ -344,6 +353,16 @@ class WatchedAdjudicationPoller:
                         await remoting.sync_watched_identifier(
                             self.hby, self.essr, kever.pre
                         )
+
+                        # Export KEL to filesystem
+                        try:
+                            await filing.export_kel(
+                                hby=self.hby, aid=kever.pre, export_dir=self.export_dir
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"WatchedAdjudicationPoller: Failed to export KEL for {watched_name}: {e}"
+                            )
 
                     else:
                         logger.debug(

@@ -75,6 +75,14 @@ parser.add_argument(
     help="path of the log file. If not defined, logs will not be written to the file.",
 )
 parser.add_argument(
+    "--export-dir",
+    "-e",
+    action="store",
+    required=False,
+    default="/usr/local/sentinel",
+    help="Directory for exporting CESR files. Default is /usr/local/sentinel.",
+)
+parser.add_argument(
     "-V",
     "--version",
     action="version",
@@ -139,6 +147,7 @@ async def async_run_sentinel(args):
             bran=args.bran,
             uxd=args.uxd,
             port=int(args.port),
+            export_dir=args.export_dir,
         )
 
     # Start all services and collect their tasks

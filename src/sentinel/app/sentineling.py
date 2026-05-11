@@ -44,7 +44,7 @@ def setup_local(
 
 
 async def setup_hk(
-    name: str, alias: str, base: str, bran: str, uxd: bool, port: int
+    name: str, alias: str, base: str, bran: str, uxd: bool, port: int, export_dir: str
 ) -> List:
     """
     Setup sentinel watcher configuration for KERI local watching.
@@ -82,7 +82,9 @@ async def setup_hk(
 
     await sync_server_key_state(name, alias, base, bran, essr)
 
-    poller = WatchedAdjudicationPoller(hby=hby, essr=essr, db=db, poll_interval=15.0)
+    poller = WatchedAdjudicationPoller(
+        hby=hby, essr=essr, db=db, poll_interval=15.0, export_dir=export_dir
+    )
 
     services.append(poller)
 
