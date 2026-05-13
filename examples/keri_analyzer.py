@@ -12,8 +12,11 @@ Usage:
     # Terminal 2: Run this application (will create its own KERI database)
     python examples/keri_analyzer.py
 """
+import requests
+from keri.app import habbing
 
 from sentinel.framework import EventHandler, register_handler, run, KELEvent
+from sentinel.framework.watching import LocalWatcherConnector
 
 
 class KERIAnalyzer(EventHandler):
@@ -33,7 +36,7 @@ class KERIAnalyzer(EventHandler):
                 print(f"  Sequence: {kever.sner.num}")
                 print(f"  Witnesses: {len(kever.wits)}")
                 print(f"  Witness list: {kever.wits}")
-                print(f"  Keys: {kever.verfers}")
+                print(f"  Keys: {', '.join([verfer.qb64 for verfer in kever.verfers])}")
             else:
                 print(f"  AID {event.aid} not found in local database")
                 print(f"  (May need to sync from network)")
@@ -50,6 +53,17 @@ if __name__ == "__main__":
     print("Watching /tmp/sentinel-export for KEL changes")
     print("Press Ctrl+C to stop\n")
 
+    hby = habbing.Habery(name="analyzer_db", base="keri-analyzer", bran=None)
+    if (hab := hby.habByName(hby.name)) is None:
+        hab = hby.makeHab(name=hby.name, transferable=True)
+    response = requests.get("http://127.0.0.1:5643/oobi/EOVB5igm-Qpcr1aRRNcCEeIMELys8USWsYNBwqOT0LWI/witness")
+    hby.psr.parse(ims=response.content)
+
+    local_watcher_connector = LocalWatcherConnector(hby=hby, hab=hab,
+                                                    watcher="ENcoAna5CwrqJW1wXwitGag5h3ZFoIVPocHL8b9nIelg")
+    local_watcher_connector.watch("EOVB5igm-Qpcr1aRRNcCEeIMELys8USWsYNBwqOT0LWI",
+                                  "http://127.0.0.1:5643/oobi/EOVB5igm-Qpcr1aRRNcCEeIMELys8USWsYNBwqOT0LWI/witness")
+
     # Register the handler
     register_handler(KERIAnalyzer())
 
@@ -59,5 +73,6 @@ if __name__ == "__main__":
         export_dir="/tmp/sentinel-export",
         poll_interval=2.0,
         name="analyzer_db",  # Framework will initialize Habery with this name
-        base="/tmp/keri-analyzer",  # Database location
+        base="keri-analyzer",  # Database location
+        hby=hby
     )

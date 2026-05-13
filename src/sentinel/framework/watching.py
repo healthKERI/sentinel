@@ -6,12 +6,15 @@ Provides polling-based file watching for KEL/TEL/Credential exports.
 
 import asyncio
 import logging
-from pathlib import Path
+import socket
 from datetime import datetime
-from typing import Optional, Dict
+from pathlib import Path
+from typing import Dict
 
-from sentinel.framework.registry import get_registry
+from keri.app.habbing import Habery, Hab
+
 from sentinel.framework.events import KELEvent, TELEvent, CredentialEvent
+from sentinel.framework.registry import get_registry
 
 logger = logging.getLogger(__name__)
 
@@ -210,3 +213,88 @@ class FileWatchingService:
         self._running = False
         if self._task and not self._task.done():
             self._task.cancel()
+
+
+
+class LocalWatcherConnector:
+    """
+    Local watcher client that sends watch requests to sentinel via unix domain socket.
+
+    Connects to a local sentinel watcher service and sends KERI rpy (reply) messages
+    to add AIDs to the watch list.
+    """
+
+    def __init__(self, hby: Habery, hab: Hab, watcher: str):
+        """
+        Initialize LocalWatcher with KERI context.
+
+        Parameters:
+            hby: Habery instance for KERI keystore management
+            hab: Hab instance representing the server's identity
+            watcher: The AID (Autonomic Identifier) of the watcher service
+
+        """
+        self.hby = hby
+        self.hab = hab
+        self.watcher = watcher
+
+        # Socket path based on server's AID prefix
+        self.socket_path = f"/tmp/sentinel_{watcher}.sock"
+
+    def watch(self, aid: str, oobi) -> bool:
+        """
+        Send watch request for an AID to local sentinel.
+
+        Creates a KERI rpy (reply) message with route '/watcher/{aid}/add'
+        and sends it to the sentinel watcher via unix domain socket.
+
+        Parameters:
+            aid: The AID (Autonomic Identifier) to watch
+            oobi: Out-of-band introduction for the AID
+
+        Returns:
+            True if message sent successfully, False otherwise
+
+        Raises:
+            ConnectionError: If unable to connect to sentinel socket
+            OSError: If socket communication fails
+        """
+        # Build the route with the AID
+        route = f"/watcher/{self.watcher}/add"
+        data = dict(cid=self.hab.pre,
+                    oid=aid)
+        if oobi:
+            data['oobi'] = oobi
+
+        msg = self.hab.reply(route=route, data=data)
+        self.hab.psr.parseOne(ims=bytes(msg))
+
+        # Create KERI rpy message structure
+        # Based on KERI message format with route and sender info
+        # Send via unix domain socket
+        try:
+            # Create unix domain socket
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+            try:
+                # Connect to sentinel socket
+                sock.connect(self.socket_path)
+
+                # Send the message
+                sock.sendall(msg)
+
+                return True
+
+            finally:
+                # Always close the socket
+                sock.close()
+
+        except FileNotFoundError:
+            raise ConnectionError(
+                f"Sentinel socket not found at {self.socket_path}. "
+                "Is the sentinel service running?"
+            )
+        except (ConnectionRefusedError, socket.error) as e:
+            raise ConnectionError(
+                f"Failed to connect to sentinel at {self.socket_path}: {e}"
+            )

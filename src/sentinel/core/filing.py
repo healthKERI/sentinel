@@ -10,7 +10,6 @@ CESR format in files and directories.
 import logging
 from pathlib import Path
 
-from keri import kering
 from keri.app.habbing import Habery
 
 logger = logging.getLogger(__name__)
@@ -34,13 +33,18 @@ async def export_kel(hby: Habery, aid: str, export_dir: str) -> bool:
     """
     try:
         # Get the habitat for this identifier
-        hab = hby.habByPre(aid)
-        if not hab:
-            logger.error(f"KEL Export: Habitat not found for {aid}")
+        kever = hby.kevers.get(aid)
+        if not kever:
+            logger.error(f"KEL Export: Hab not found for {aid}")
             return False
 
         # Generate CESR stream for the KEL
-        kel_bytes = hab.replyToOobi(aid, role=kering.Roles.controller)
+        kel_bytes = bytearray()
+        for msg in hby.db.cloneDelegation(kever=kever):
+            kel_bytes.extend(msg)
+
+        for msg in hby.db.clonePreIter(pre=aid):
+            kel_bytes.extend(msg)
 
         # Create directory structure: {export_dir}/kel/
         kel_dir = Path(export_dir) / "kel"
