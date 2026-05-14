@@ -432,16 +432,25 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     def test_init(self):
         """Test poller initialization"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=15.0
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=15.0, export_dir="/tmp/test"
         )
 
         self.assertEqual(poller.hby, self.mock_hby)
         self.assertEqual(poller.essr, self.mock_essr)
         self.assertEqual(poller.db, self.mock_db)
         self.assertEqual(poller.poll_interval, 15.0)
+        self.assertEqual(poller.export_dir, "/tmp/test")
         self.assertTrue(poller.query_done)
         self.assertIsNone(poller._task)
         self.assertFalse(poller._running)
+
+    def test_init_default_export_dir(self):
+        """Test poller initialization with default export_dir"""
+        poller = WatchedAdjudicationPoller(
+            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=15.0
+        )
+
+        self.assertEqual(poller.export_dir, "/usr/local/sentinel")
 
     async def test_start(self):
         """Test starting the poller"""

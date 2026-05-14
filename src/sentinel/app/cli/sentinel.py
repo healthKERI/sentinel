@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-kept.app.cli module
+sentinel.app.cli module
 
 """
 

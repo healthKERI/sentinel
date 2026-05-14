@@ -46,7 +46,7 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/healthKERI/hk-tracker"
+Homepage = "https://github.com/healthKERI/sentinel"
 
 [project.scripts]
 sentinel = "sentinel.app.cli.sentinel:main"

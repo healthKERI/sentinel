@@ -9,13 +9,131 @@ from unittest.mock import Mock, patch, AsyncMock
 from sentinel.app.sentineling import setup_local, setup_hk, UnsupportedOperation
 
 
-class TestSetupLocal(unittest.TestCase):
+class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
     """Test cases for setup_local function"""
 
-    def test_setup_local_raises_unsupported_operation(self):
-        """Test that setup_local raises UnsupportedOperation"""
-        with self.assertRaises(UnsupportedOperation) as context:
-            setup_local(
+    @patch("sentinel.app.sentineling.LocalSocketListener")
+    @patch("sentinel.app.sentineling.SentinelBaser")
+    @patch("sentinel.app.sentineling.habbing.Habery")
+    async def test_setup_local_without_uxd(
+        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+    ):
+        """Test setup_local without uxd flag returns only watcher"""
+        # Setup mocks
+        mock_hab = Mock()
+        mock_hab.pre = "ETestAIDPrefix123"
+        mock_hby = Mock()
+        mock_hby.habByName.return_value = mock_hab
+        mock_hby.kvy = Mock()
+        mock_hby.rvy = Mock()
+        mock_hby.db = Mock()
+        mock_habery_class.return_value = mock_hby
+
+        mock_db = Mock()
+        mock_baser_class.return_value = mock_db
+
+        # Call setup_local without uxd
+        with patch("sentinel.core.witnessing.Watcher") as mock_watcher_class:
+            mock_watcher = Mock()
+            mock_watcher_class.return_value = mock_watcher
+
+            result = await setup_local(
+                name="test",
+                alias="testalias",
+                base="/tmp/test",
+                bran="testbran",
+                uxd=False,
+                port=8080,
+                export_dir="/tmp/export",
+            )
+
+            # Verify Watcher was created
+            mock_watcher_class.assert_called_once_with(
+                db=mock_db, hby=mock_hby, hab=mock_hab, export_dir="/tmp/export"
+            )
+
+            # Verify LocalSocketListener was NOT created
+            mock_socket_listener_class.assert_not_called()
+
+            # Verify result contains only watcher
+            self.assertIsInstance(result, list)
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0], mock_watcher)
+
+    @patch("sentinel.app.sentineling.LocalSocketListener")
+    @patch("sentinel.app.sentineling.SentinelBaser")
+    @patch("sentinel.app.sentineling.habbing.Habery")
+    async def test_setup_local_with_uxd(
+        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+    ):
+        """Test setup_local with uxd flag returns watcher and socket listener"""
+        # Setup mocks
+        mock_hab = Mock()
+        mock_hab.pre = "ETestAIDPrefix123"
+        mock_hby = Mock()
+        mock_hby.habByName.return_value = mock_hab
+        mock_hby.kvy = Mock()
+        mock_hby.rvy = Mock()
+        mock_hby.db = Mock()
+        mock_habery_class.return_value = mock_hby
+
+        mock_db = Mock()
+        mock_baser_class.return_value = mock_db
+
+        mock_socket_listener = Mock()
+        mock_socket_listener_class.return_value = mock_socket_listener
+
+        # Call setup_local with uxd=True
+        with patch("sentinel.core.witnessing.Watcher") as mock_watcher_class:
+            mock_watcher = Mock()
+            mock_watcher_class.return_value = mock_watcher
+
+            result = await setup_local(
+                name="test",
+                alias="testalias",
+                base="/tmp/test",
+                bran="testbran",
+                uxd=True,
+                port=8080,
+                export_dir="/tmp/export",
+            )
+
+            # Verify Watcher was created
+            mock_watcher_class.assert_called_once_with(
+                db=mock_db, hby=mock_hby, hab=mock_hab, export_dir="/tmp/export"
+            )
+
+            # Verify LocalSocketListener was created
+            expected_socket_path = f"/tmp/sentinel_{mock_hab.pre}.sock"
+            mock_socket_listener_class.assert_called_once_with(
+                hby=mock_hby,
+                watcher=mock_watcher,
+                db=mock_db,
+                socket_path=expected_socket_path,
+                poll_interval=0.5,
+            )
+
+            # Verify result contains both services
+            self.assertIsInstance(result, list)
+            self.assertEqual(len(result), 2)
+            self.assertEqual(result[0], mock_watcher)
+            self.assertEqual(result[1], mock_socket_listener)
+
+    @patch("sentinel.app.sentineling.LocalSocketListener")
+    @patch("sentinel.app.sentineling.SentinelBaser")
+    @patch("sentinel.app.sentineling.habbing.Habery")
+    async def test_setup_local_alias_not_found(
+        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+    ):
+        """Test setup_local raises ValueError when alias is not found"""
+        # Setup mocks - habByName returns None
+        mock_hby = Mock()
+        mock_hby.habByName.return_value = None
+        mock_habery_class.return_value = mock_hby
+
+        # Call setup_local and expect ValueError
+        with self.assertRaises(ValueError) as context:
+            await setup_local(
                 name="test",
                 alias="testalias",
                 base="/tmp/test",
@@ -24,9 +142,9 @@ class TestSetupLocal(unittest.TestCase):
                 port=8080,
             )
 
-        self.assertEqual(
-            str(context.exception), "Local watcher configuration is not supported yet"
-        )
+        # Verify error message
+        self.assertIn("Sentinel alias", str(context.exception))
+        self.assertIn("not found", str(context.exception))
 
 
 class TestSetupHk(unittest.IsolatedAsyncioTestCase):
@@ -87,6 +205,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             bran=self.bran,
             uxd=False,
             port=self.port,
+            export_dir="/tmp/export",
         )
 
         # Verify Habery initialization with sentinel_name
@@ -120,7 +239,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         # Verify WatchedAdjudicationPoller initialization
         mock_poller_class.assert_called_once_with(
-            hby=mock_hby, essr=mock_essr, db=mock_db, poll_interval=15.0
+            hby=mock_hby, essr=mock_essr, db=mock_db, poll_interval=15.0, export_dir="/tmp/export"
         )
 
         # Verify ObvsSocketListener was NOT created
@@ -181,6 +300,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             bran=self.bran,
             uxd=True,
             port=self.port,
+            export_dir="/tmp/export",
         )
 
         # Verify Habery initialization with sentinel_name
@@ -214,7 +334,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         # Verify WatchedAdjudicationPoller initialization
         mock_poller_class.assert_called_once_with(
-            hby=mock_hby, essr=mock_essr, db=mock_db, poll_interval=15.0
+            hby=mock_hby, essr=mock_essr, db=mock_db, poll_interval=15.0, export_dir="/tmp/export"
         )
 
         # Verify ObvsSocketListener initialization with correct socket path
@@ -265,6 +385,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
                 bran=self.bran,
                 uxd=False,
                 port=self.port,
+                export_dir="/tmp/export",
             )
 
         # Verify error message (updated to match new code)
@@ -335,6 +456,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             bran=self.bran,
             uxd=True,
             port=self.port,
+            export_dir="/tmp/export",
         )
 
         # Verify socket path uses hab.pre, not name
@@ -390,6 +512,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             bran=self.bran,
             uxd=False,
             port=self.port,
+            export_dir="/tmp/export",
         )
 
         # Verify return type
