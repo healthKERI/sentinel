@@ -8,7 +8,7 @@ Functions and services for executing queries against Witnesses
 import asyncio
 import logging
 import random
-from typing import Optional, Dict, List
+from typing import Optional
 from urllib.parse import urljoin
 
 import httpx
@@ -219,7 +219,7 @@ class Receiptor:
         # Collect receipts from all witnesses in parallel
         logger.debug(f"Querying {len(wits)} witnesses in parallel for receipts")
         results = await asyncio.gather(
-            *[self._query_witness_for_receipt(hab, wit, msg, auths) for wit in wits],
+            *[self._query_witness_for_receipt(hab, wit, msg, auths) for wit in wits],  # type: ignore
             return_exceptions=True
         )
 

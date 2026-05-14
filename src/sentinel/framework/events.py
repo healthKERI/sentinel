@@ -27,7 +27,7 @@ class BaseEvent:
     aid: str
     filepath: str
     data: bytes
-    timestamp: datetime
+    timestamp: int
 
     # Optional: only populated if run() was given KERI infrastructure
     hby: Optional[object] = None

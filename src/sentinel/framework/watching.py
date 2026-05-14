@@ -7,11 +7,12 @@ Provides polling-based file watching for KEL/TEL/Credential exports.
 import asyncio
 import logging
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
 
 from keri.app.habbing import Habery, Hab
+from keri.core import coring, parsing
+from keri.help import helping
 
 from sentinel.framework.events import KELEvent, TELEvent, CredentialEvent
 from sentinel.framework.registry import get_registry
@@ -62,9 +63,6 @@ class FileWatchingService:
         self.registry = get_registry()
         self._task = None
         self._running = False
-
-        # In-memory state tracking: {filepath: mtime}
-        self._file_state: Dict[str, float] = {}
 
         # Directories to watch: {event_type: directory_path}
         self.watch_dirs = {
@@ -139,13 +137,13 @@ class FileWatchingService:
                 try:
                     # Get file stats
                     stat = filepath.stat()
-                    mtime = stat.st_mtime
+                    mtime = int(stat.st_mtime)
 
                     # Check against last known state (in-memory)
                     file_key = str(filepath)
-                    last_mtime = self._file_state.get(file_key)
+                    last_mtime = self.db.file_state.get(keys=(file_key,))
 
-                    if last_mtime is not None and mtime <= last_mtime:
+                    if last_mtime is not None and mtime <= last_mtime.num:  # type: ignore
                         # No change
                         continue
 
@@ -160,6 +158,9 @@ class FileWatchingService:
 
                     # Extract AID from filename (filename is {aid}.cesr)
                     aid = filepath.stem
+                    
+
+                    parsing.Parser().parse(ims=bytes(data), kvy=self.hby.kvy, local=True)
 
                     # Create event object
                     event_class = {
@@ -172,7 +173,7 @@ class FileWatchingService:
                         aid=aid,
                         filepath=str(filepath),
                         data=data,
-                        timestamp=datetime.fromtimestamp(mtime),
+                        timestamp=mtime,
                         hby=self.hby,
                         essr=self.essr,
                         db=self.db,
@@ -182,7 +183,7 @@ class FileWatchingService:
                     await self.registry.dispatch(event_type, event)
 
                     # Update in-memory state
-                    self._file_state[file_key] = mtime
+                    self.db.file_state.pin(keys=(file_key,), val=coring.Number(num=mtime))
 
                 except Exception as e:
                     logger.exception(

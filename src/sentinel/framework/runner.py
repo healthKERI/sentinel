@@ -9,6 +9,7 @@ import logging
 import signal
 from typing import Optional
 
+from sentinel.framework.basing import AppBaser
 from sentinel.framework.watching import FileWatchingService
 from sentinel.framework.registry import get_registry
 
@@ -68,6 +69,9 @@ def run(
         except Exception as e:
             logger.warning(f"Failed to initialize KERI infrastructure: {e}")
             logger.info("Continuing without KERI support")
+
+    if not db:
+        db = AppBaser(name=hby.name, headDirPath=export_dir)
 
     # Run async main
     asyncio.run(
