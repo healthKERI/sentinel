@@ -9,11 +9,15 @@ from typing import List
 from kept.hk.configing import HealthKERIConfig
 from kept.hk.essring import APIClient
 from keri.app import habbing
+from keri import help
+from keri.vdr import credentialing
 
 from sentinel.core.eventing import sync_server_key_state
 from sentinel.core.watching import WatchedAdjudicationPoller, ObvsSocketListener
 from sentinel.core.witnessing import LocalSocketListener
 from sentinel.db.basing import SentinelBaser
+
+logger = help.ogler.getLogger()
 
 
 class UnsupportedOperation(Exception):
@@ -28,6 +32,7 @@ async def setup_local(
     uxd: bool,
     port: int,
     export_dir: str = "/usr/local/sentinel",
+    registrar_url: str | None = None,
 ) -> List:
     """
     Setup sentinel watcher configuration for KERI local watching.
@@ -42,6 +47,7 @@ async def setup_local(
         uxd: Flag indicating whether to use Unix domain socket
         port: The port number for network communication
         export_dir: Directory for exporting CESR files (default: /usr/local/sentinel)
+        registrar_url: URL for Registrar if available
 
     Returns:
         List: A list of configured services for the sentinel instance
@@ -49,24 +55,31 @@ async def setup_local(
     """
     from sentinel.core.witnessing import Watcher
 
-    sentinel_name = f"{name}-sentinel"
-    sentinel_alias = f"{alias}-sentinel"
-
     services = list()
 
     # Create Habery for managing identifiers
-    hby = habbing.Habery(name=sentinel_name, base=base, bran=bran)
-    hab = hby.habByName(sentinel_alias)
-    if not hab:
-        raise ValueError(
-            f"Sentinel alias for '{alias}' not found in sentinel Habery '{name}'"
-        )
+    hby = habbing.Habery(name=name, base=base, bran=bran)
+    hab = hby.habByName(alias)
+    if hab is None:
+        hab = hby.makeHab(name=alias, transferable=False)
+
+    logger.info(f"Local watcher AID: {hab.pre}")
+
+    # Create credential regery support
+    rgy = credentialing.Regery(hby=hby, name=name, base=base)
 
     # Create database for watcher-specific data
     db = SentinelBaser(name=name, headDirPath=base)
 
     # Create local Watcher for direct witness querying
-    watcher = Watcher(db=db, hby=hby, hab=hab, export_dir=export_dir)
+    watcher = Watcher(
+        db=db,
+        hby=hby,
+        hab=hab,
+        rgy=rgy,
+        export_dir=export_dir,
+        registrar_url=registrar_url,
+    )
     services.append(watcher)
 
     # Optional: Unix domain socket listener for real-time updates
@@ -81,7 +94,14 @@ async def setup_local(
 
 
 async def setup_hk(
-    name: str, alias: str, base: str, bran: str, uxd: bool, port: int, export_dir: str
+    name: str,
+    alias: str,
+    base: str,
+    bran: str,
+    uxd: bool,
+    port: int,
+    export_dir: str,
+    registrar_url: str | None = None,
 ) -> List:
     """
     Setup sentinel watcher configuration for KERI local watching.
@@ -96,6 +116,8 @@ async def setup_hk(
         bran: The passcode for the sentinel instance
         uxd: Flag indicating whether to use Unix domain socket
         port: The port number for network communication
+        export_dir: Directory for exporting CESR files
+        registrar_url: URL for credential registrar
 
     Returns:
         List: A list of configured task services for the sentinel instance
@@ -112,6 +134,7 @@ async def setup_hk(
             f"Sentinel alias for '{alias}' not found in sentinel Habery '{name}'"
         )
 
+    rgy = credentialing.Regery(hby=hby, name=name, base=base)
     db = SentinelBaser(name=name, headDirPath=base)
 
     config = HealthKERIConfig.get_instance()
@@ -120,7 +143,7 @@ async def setup_hk(
     await sync_server_key_state(name, alias, base, bran, essr)
 
     poller = WatchedAdjudicationPoller(
-        hby=hby, essr=essr, db=db, poll_interval=15.0, export_dir=export_dir
+        hby=hby, rgy=rgy, essr=essr, db=db, poll_interval=15.0, export_dir=export_dir
     )
 
     services.append(poller)

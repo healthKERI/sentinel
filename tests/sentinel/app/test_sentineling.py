@@ -12,11 +12,16 @@ from sentinel.app.sentineling import setup_local, setup_hk
 class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
     """Test cases for setup_local function"""
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.LocalSocketListener")
     @patch("sentinel.app.sentineling.SentinelBaser")
     @patch("sentinel.app.sentineling.habbing.Habery")
     async def test_setup_local_without_uxd(
-        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+        self,
+        mock_habery_class,
+        mock_baser_class,
+        mock_socket_listener_class,
+        mock_regery_class,
     ):
         """Test setup_local without uxd flag returns only watcher"""
         # Setup mocks
@@ -31,6 +36,9 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         # Call setup_local without uxd
         with patch("sentinel.core.witnessing.Watcher") as mock_watcher_class:
@@ -49,7 +57,12 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
 
             # Verify Watcher was created
             mock_watcher_class.assert_called_once_with(
-                db=mock_db, hby=mock_hby, hab=mock_hab, export_dir="/tmp/export"
+                db=mock_db,
+                hby=mock_hby,
+                hab=mock_hab,
+                rgy=mock_rgy,
+                export_dir="/tmp/export",
+                registrar_url=None,
             )
 
             # Verify LocalSocketListener was NOT created
@@ -60,11 +73,16 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0], mock_watcher)
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.LocalSocketListener")
     @patch("sentinel.app.sentineling.SentinelBaser")
     @patch("sentinel.app.sentineling.habbing.Habery")
     async def test_setup_local_with_uxd(
-        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+        self,
+        mock_habery_class,
+        mock_baser_class,
+        mock_socket_listener_class,
+        mock_regery_class,
     ):
         """Test setup_local with uxd flag returns watcher and socket listener"""
         # Setup mocks
@@ -79,6 +97,9 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         mock_socket_listener = Mock()
         mock_socket_listener_class.return_value = mock_socket_listener
@@ -100,7 +121,12 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
 
             # Verify Watcher was created
             mock_watcher_class.assert_called_once_with(
-                db=mock_db, hby=mock_hby, hab=mock_hab, export_dir="/tmp/export"
+                db=mock_db,
+                hby=mock_hby,
+                hab=mock_hab,
+                rgy=mock_rgy,
+                export_dir="/tmp/export",
+                registrar_url=None,
             )
 
             # Verify LocalSocketListener was created
@@ -119,21 +145,41 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result[0], mock_watcher)
             self.assertEqual(result[1], mock_socket_listener)
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.LocalSocketListener")
     @patch("sentinel.app.sentineling.SentinelBaser")
     @patch("sentinel.app.sentineling.habbing.Habery")
     async def test_setup_local_alias_not_found(
-        self, mock_habery_class, mock_baser_class, mock_socket_listener_class
+        self,
+        mock_habery_class,
+        mock_baser_class,
+        mock_socket_listener_class,
+        mock_regery_class,
     ):
-        """Test setup_local raises ValueError when alias is not found"""
-        # Setup mocks - habByName returns None
+        """Test setup_local creates hab when alias is not found"""
+        # Setup mocks - habByName returns None, makeHab creates a new hab
+        mock_hab = Mock()
+        mock_hab.pre = "ETestAIDPrefix123"
         mock_hby = Mock()
         mock_hby.habByName.return_value = None
+        mock_hby.makeHab.return_value = mock_hab
+        mock_hby.kvy = Mock()
+        mock_hby.rvy = Mock()
+        mock_hby.db = Mock()
         mock_habery_class.return_value = mock_hby
 
-        # Call setup_local and expect ValueError
-        with self.assertRaises(ValueError) as context:
-            await setup_local(
+        mock_db = Mock()
+        mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
+
+        # Call setup_local
+        with patch("sentinel.core.witnessing.Watcher") as mock_watcher_class:
+            mock_watcher = Mock()
+            mock_watcher_class.return_value = mock_watcher
+
+            result = await setup_local(
                 name="test",
                 alias="testalias",
                 base="/tmp/test",
@@ -142,9 +188,14 @@ class TestSetupLocal(unittest.IsolatedAsyncioTestCase):
                 port=8080,
             )
 
-        # Verify error message
-        self.assertIn("Sentinel alias", str(context.exception))
-        self.assertIn("not found", str(context.exception))
+            # Verify makeHab was called to create the hab
+            mock_hby.makeHab.assert_called_once_with(
+                name="testalias", transferable=False
+            )
+
+            # Verify result is successful
+            self.assertIsInstance(result, list)
+            self.assertEqual(len(result), 1)
 
 
 class TestSetupHk(unittest.IsolatedAsyncioTestCase):
@@ -158,6 +209,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         self.bran = "testbran"
         self.port = 8080
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
@@ -174,6 +226,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class,
         mock_socket_listener_class,
         mock_sync_server,
+        mock_regery_class,
     ):
         """Test setup_hk without uxd flag returns only poller"""
         # Setup mocks
@@ -185,6 +238,9 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         mock_config = Mock()
         mock_config.protected_url = "https://api.example.com"
@@ -240,6 +296,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         # Verify WatchedAdjudicationPoller initialization
         mock_poller_class.assert_called_once_with(
             hby=mock_hby,
+            rgy=mock_rgy,
             essr=mock_essr,
             db=mock_db,
             poll_interval=15.0,
@@ -254,6 +311,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0], mock_poller)
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
@@ -270,6 +328,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class,
         mock_socket_listener_class,
         mock_sync_server,
+        mock_regery_class,
     ):
         """Test setup_hk with uxd flag returns both poller and socket listener"""
         # Setup mocks
@@ -281,6 +340,9 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         mock_config = Mock()
         mock_config.protected_url = "https://api.example.com"
@@ -339,6 +401,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         # Verify WatchedAdjudicationPoller initialization
         mock_poller_class.assert_called_once_with(
             hby=mock_hby,
+            rgy=mock_rgy,
             essr=mock_essr,
             db=mock_db,
             poll_interval=15.0,
@@ -361,6 +424,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result[0], mock_poller)
         self.assertEqual(result[1], mock_socket_listener)
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
@@ -377,6 +441,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class,
         mock_socket_listener_class,
         mock_sync_server,
+        mock_regery_class,
     ):
         """Test setup_hk raises ValueError when alias is not found"""
         # Setup mocks - habByName returns None
@@ -414,6 +479,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class.assert_not_called()
         mock_socket_listener_class.assert_not_called()
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
@@ -430,6 +496,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class,
         mock_socket_listener_class,
         mock_sync_server,
+        mock_regery_class,
     ):
         """Test that socket path uses hab.pre instead of name parameter"""
         # Setup mocks with specific pre value
@@ -441,6 +508,9 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         mock_config = Mock()
         mock_config.protected_url = "https://api.example.com"
@@ -473,6 +543,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         call_kwargs = mock_socket_listener_class.call_args[1]
         self.assertEqual(call_kwargs["socket_path"], expected_socket_path)
 
+    @patch("sentinel.app.sentineling.credentialing.Regery")
     @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
@@ -489,6 +560,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_poller_class,
         mock_socket_listener_class,
         mock_sync_server,
+        mock_regery_class,
     ):
         """Test that setup_hk returns a list"""
         # Setup mocks
@@ -500,6 +572,9 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
 
         mock_db = Mock()
         mock_baser_class.return_value = mock_db
+
+        mock_rgy = Mock()
+        mock_regery_class.return_value = mock_rgy
 
         mock_config = Mock()
         mock_config.protected_url = "https://api.example.com"

@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 import random
 from typing import Optional, Set
 
+import httpx
 from hio.help import decking
 from keri import help
 from keri.app.habbing import Habery
@@ -22,6 +23,7 @@ from keri.vdr import verifying
 from keri.vdr.eventing import Tevery
 
 from sentinel.core import querying, filing
+from sentinel.core.credentialing import CredentialLoader
 from sentinel.db.basing import States, WitnessState, WitnessQuery
 
 logger = help.ogler.getLogger()
@@ -36,20 +38,33 @@ class Watcher:
 
     """
 
-    def __init__(self, db, hby, hab, export_dir: str = "/usr/local/sentinel"):
+    def __init__(
+        self,
+        db,
+        hby,
+        hab,
+        rgy,
+        export_dir: str = "/usr/local/sentinel",
+        registrar_url: str | None = None,
+    ):
         """Create new watcher, or loaded from database on startup
 
         Parameters:
             db (Baser): database instance for watcher specific data
             hby (Habery): key state database environment for this watcher instance
             hab (Hab): Habitat of the non-transferable AID for this watcher
+            rgy (Registry): Registry instance for managing credential registry operations
             export_dir (str): Directory for exporting CESR files
+            registrar_url (str | None): URL for credential registrar
         """
         self.db = db
         self.hby = hby
         self.hab = hab
+        self.rgy = rgy
         self.export_dir = export_dir
         self.cid = self.hab.pre
+        self.registrar_url = registrar_url
+
         # KERI components expect a Deck-like object for cues
         # We keep using Deck for compatibility with KERI library
         self.cues = decking.Deck()
@@ -70,7 +85,7 @@ class Watcher:
         )
         self.kvy.registerReplyRoutes(self.rtr)
 
-        self.verifier = verifying.Verifier(hby=self.hby)
+        self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.tvy = Tevery(
             reger=self.verifier.reger,
             db=self.hby.db,
@@ -104,7 +119,7 @@ class Watcher:
 
         # Background workers
         self.escrower: Optional[Escrower] = None
-        self.sentinal_launcher: Optional[SentinalLauncher] = None
+        self.sentinel_launcher: Optional[SentinelLauncher] = None
         self._running = False
         self._tasks = []
 
@@ -117,18 +132,20 @@ class Watcher:
 
         # Create and start background workers
         self.escrower = Escrower(kvy=self.kvy, rvy=self.rvy, tvy=self.tvy, exc=self.exc)
-        self.sentinal_launcher = SentinalLauncher(
+        self.sentinel_launcher = SentinelLauncher(
             db=self.db,
             hby=self.hby,
             hab=self.hab,
+            rgy=self.rgy,
             cid=self.cid,
             export_dir=self.export_dir,
+            registrar_url=self.registrar_url,
         )
 
         escrow_task = asyncio.create_task(self.escrower.run())
-        sentinal_task = asyncio.create_task(self.sentinal_launcher.run())
+        sentinel_task = asyncio.create_task(self.sentinel_launcher.run())
 
-        self._tasks = [escrow_task, sentinal_task]
+        self._tasks = [escrow_task, sentinel_task]
         return self._tasks
 
     def stop(self):
@@ -137,8 +154,8 @@ class Watcher:
 
         if self.escrower:
             self.escrower.stop()
-        if self.sentinal_launcher:
-            self.sentinal_launcher.stop()
+        if self.sentinel_launcher:
+            self.sentinel_launcher.stop()
 
         # Cancel all tasks
         for task in self._tasks:
@@ -162,29 +179,42 @@ class Watcher:
             self.watched_identifiers.add(aid)
 
 
-class SentinalLauncher:
+class SentinelLauncher:
     """Background worker to process watched AIDs periodically"""
 
     WATCHERRETRY = 30
     CONTROLLERRETRY = 60
 
-    def __init__(self, db, hby, hab, cid, export_dir: str = "/usr/local/sentinel"):
+    def __init__(
+        self,
+        db,
+        hby,
+        hab,
+        rgy,
+        cid,
+        export_dir: str = "/usr/local/sentinel",
+        registrar_url: str | None = None,
+    ):
         """Create watched processor launcher
 
         Parameters:
             db(Baser): Watcher op net database environment
             hby (Habery): key state database environment
             hab (Hab): Habitat of the non-transferable AID for this watcher
-            cid (str): qb64 of controller of the watcher for this sentinal
+            rgy (Registry): Registry instance for credential management
+            cid (str): qb64 of controller of the watcher for this sentinel
             export_dir (str): Directory for exporting CESR files
+            registrar_url (str): URL for credential registrar
 
         """
         self.db = db
         self.hab = hab
         self.hby = hby
+        self.rgy = rgy
         self.cid = cid
         self.export_dir = export_dir
-        self.sentinals = dict()
+        self.registrar_url = registrar_url
+        self.sentinels = dict()
         self._running = False
         self._interval = 1.0  # Check every second
 
@@ -196,48 +226,50 @@ class SentinalLauncher:
             try:
                 await self.watch_watched()
 
-                # Clean up completed sentinals
-                for wid, sentinal in list(self.sentinals.items()):
-                    if sentinal.done:
-                        del self.sentinals[wid]
+                # Clean up completed sentinels
+                for wid, sentinel in list(self.sentinels.items()):
+                    if sentinel.done:
+                        del self.sentinels[wid]
 
                 await asyncio.sleep(self._interval)
             except Exception as e:
-                logger.exception(f"Error in SentinalLauncher: {e}")
+                logger.exception(f"Error in SentinelLauncher: {e}")
                 await asyncio.sleep(self._interval)
 
     def stop(self):
         """Stop the background worker"""
         self._running = False
 
-        # Stop all running sentinals
-        for sentinal in self.sentinals.values():
-            sentinal.stop()
+        # Stop all running sentinels
+        for sentinel in self.sentinels.values():
+            sentinel.stop()
 
     async def watch_watched(self):
-        """Check watched AIDs and launch sentinals as needed"""
+        """Check watched AIDs and launch sentinels as needed"""
         for (_, _, oid), observed in self.hby.db.obvs.getItemIter(
             keys=(
                 self.cid,
                 self.hab.pre,
             )
         ):
-            if observed.enabled and oid not in self.sentinals:
+            if observed.enabled and oid not in self.sentinels:
                 dtnow = helping.nowUTC()
                 dte = helping.fromIso8601(observed.datetime)
                 if (dtnow - dte) > timedelta(seconds=self.WATCHERRETRY):
-                    sentinal = Sentinal(
+                    sentinel = Sentinel(
                         self.hby,
                         self.hab,
+                        self.rgy,
                         oid,
                         self.cid,
                         self.db,
                         export_dir=self.export_dir,
+                        registrar_url=self.registrar_url,
                     )
-                    self.sentinals[oid] = sentinal
+                    self.sentinels[oid] = sentinel
 
-                    # Start the sentinal task
-                    asyncio.create_task(sentinal.run())
+                    # Start the sentinel task
+                    asyncio.create_task(sentinel.run())
 
                     observed.datetime = helping.toIso8601(dtnow)
                     self.hby.db.obvs.pin(
@@ -291,19 +323,31 @@ class Escrower:
         self.exc.processEscrow()
 
 
-class Sentinal:
+class Sentinel:
     """Watches a specific AID and queries witnesses"""
 
-    def __init__(self, hby, hab, oid, cid, db, export_dir: str = "/usr/local/sentinel"):
-        """Create sentinal to watch a specific AID
+    def __init__(
+        self,
+        hby,
+        hab,
+        rgy,
+        oid,
+        cid,
+        db,
+        export_dir: str = "/usr/local/sentinel",
+        registrar_url=None,
+    ):
+        """Create sentinel to watch a specific AID
 
         Parameters:
             hby: Habery instance
             hab: Habitat of watcher
+            rgy: Registry instance for credential management
             oid: Object identifier being watched
             cid: Controller identifier
             db: Database instance
             export_dir: Directory for exporting CESR files
+            registrar_url: URL of credential registrar for automatic credential search
         """
         self.hby = hby
         self.hab = hab
@@ -311,12 +355,18 @@ class Sentinal:
         self.cid = cid
         self.db = db
         self.export_dir = export_dir
+        self.credential_loader = (
+            None
+            if not registrar_url
+            else CredentialLoader(hby, rgy, export_dir, registrar_url)
+        )
+
         self._task = None
         self._done = False
 
     @property
     def done(self):
-        """Check if the sentinal has completed"""
+        """Check if the sentinel has completed"""
         return self._done
 
     async def run(self):
@@ -324,12 +374,12 @@ class Sentinal:
         try:
             await self.watch()
         except Exception as e:
-            logger.exception(f"Error in Sentinal.run: {e}")
+            logger.exception(f"Error in Sentinel.run: {e}")
         finally:
             self._done = True
 
     def stop(self):
-        """Stop the sentinal"""
+        """Stop the sentinel"""
         if self._task and not self._task.done():
             self._task.cancel()
         self._done = True
@@ -347,7 +397,7 @@ class Sentinal:
             WitnessState or None if query failed
         """
         keys = (self.oid, wit)
-        witQuery = WitnessQuery(
+        wit_query = WitnessQuery(
             watcher_id=self.hab.pre,
             aid=self.oid,
             wit=wit,
@@ -366,28 +416,28 @@ class Sentinal:
             await receiptor.ksn(pre=self.oid, src=self.hab.pre, wit=wit)
 
             if (saider := self.hab.db.knas.get(keys)) is None:
-                witQuery.error = "No response received within timeout"
-                self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=witQuery)
+                wit_query.error = "No response received within timeout"
+                self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=wit_query)
                 return None
 
             mystate = kever.state()
             witstate = self.hby.db.ksns.get((saider.qb64,))
 
             diffstate = self.diff_state(wit, mystate, witstate)
-            witQuery.response_received = True
-            witQuery.state = diffstate.state  # type: ignore
-            witQuery.keystate = witstate
-            witQuery.sn = diffstate.sn
-            witQuery.dig = diffstate.dig
+            wit_query.response_received = True
+            wit_query.state = diffstate.state  # type: ignore
+            wit_query.keystate = witstate
+            wit_query.sn = diffstate.sn
+            wit_query.dig = diffstate.dig
 
-            self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=witQuery)
+            self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=wit_query)
 
             return diffstate
 
         except Exception as e:
             logger.error(f"Error querying witness {wit}: {e}")
-            witQuery.error = str(e)
-            self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=witQuery)
+            wit_query.error = str(e)
+            self.db.witq.pin(keys=(self.hab.pre, self.oid, wit), val=wit_query)
             return None
 
     async def watch(self):
@@ -461,6 +511,7 @@ class Sentinal:
                         f"{len(ahds)} witnesses have an event that is ahead of the local KEL:"
                     )
 
+                current_sn = self.hby.kevers[self.oid].sn
                 state = random.choice(ahds)
                 fn = (
                     self.hby.kevers[self.oid].sn + 1
@@ -480,6 +531,17 @@ class Sentinal:
                     )
                 except Exception as e:
                     logger.error(f"Failed to export KEL for {self.oid}: {e}")
+
+                # Trigger credential search if appropriate
+                if self.credential_loader:
+                    logger.info(
+                        f"Launching credential search for {kever.serder.pre} between {current_sn} and {state.sn}"
+                    )
+                    asyncio.create_task(
+                        self.credential_loader.search_for_credentials(
+                            kever.serder.pre, current_sn, state.sn
+                        )
+                    )
 
                 return
 
@@ -682,6 +744,7 @@ class LocalSocketListener:
 
             # Check and add new obvs entries
             self.psr.parseOne(data)
+            await self._resolve_oobis()
             await self._check_and_add_obvs()
 
         except Exception as e:
@@ -785,6 +848,19 @@ class LocalSocketListener:
 
         except Exception as e:
             logger.exception(f"LocalSocketListener: Error in _check_and_add_obvs: {e}")
+
+    async def _resolve_oobis(self):
+        for (oobi,), oobi_record in self.hby.db.oobis.getItemIter():
+            async with httpx.AsyncClient() as client:
+                response = await client.get(oobi)
+                if response.status_code == 200:
+                    self.psr.parse(response.content)
+                    self._process_escrows()
+                    self.hby.db.oobis.rem(keys=(oobi,))
+
+    def _process_escrows(self):
+        self.hby.kvy.processEscrows()
+        self.hby.rvy.processEscrowReply()
 
     def start(self):
         """

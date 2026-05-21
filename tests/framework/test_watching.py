@@ -38,7 +38,7 @@ def temp_export_dir():
         export_dir = Path(tmpdir)
         (export_dir / "kel").mkdir()
         (export_dir / "tel").mkdir()
-        (export_dir / "cred").mkdir()
+        (export_dir / "credential").mkdir()
         yield export_dir
 
 
@@ -70,7 +70,16 @@ def mock_hby():
     """Create mock Habery with kvy attribute"""
     hby = Mock()
     hby.kvy = Mock()
+    hby.db = Mock()
     return hby
+
+
+@pytest.fixture
+def mock_rgy():
+    """Create mock Regery with reger attribute"""
+    rgy = Mock()
+    rgy.reger = Mock()
+    return rgy
 
 
 @pytest.fixture
@@ -92,12 +101,13 @@ def handler():
 class TestFileWatchingService:
     """Test FileWatchingService"""
 
-    def test_service_initialization(self, temp_export_dir, mock_db, mock_hby):
+    def test_service_initialization(self, temp_export_dir, mock_db, mock_hby, mock_rgy):
         """Test service can be initialized"""
         service = FileWatchingService(
             export_dir=str(temp_export_dir),
             poll_interval=0.1,
             hby=mock_hby,
+            rgy=mock_rgy,
             db=mock_db,
         )
         assert service.export_dir == temp_export_dir
@@ -105,19 +115,22 @@ class TestFileWatchingService:
         assert service._running is False
         assert service.db is mock_db
         assert service.hby is mock_hby
+        assert service.rgy is mock_rgy
 
-    def test_watch_dirs_created(self, temp_export_dir):
+    def test_watch_dirs_created(self, temp_export_dir, mock_hby, mock_rgy):
         """Test that watch directories are configured"""
-        service = FileWatchingService(export_dir=str(temp_export_dir))
+        service = FileWatchingService(
+            export_dir=str(temp_export_dir), hby=mock_hby, rgy=mock_rgy
+        )
         assert "kel" in service.watch_dirs
         assert "tel" in service.watch_dirs
         assert "credential" in service.watch_dirs
         assert service.watch_dirs["kel"] == temp_export_dir / "kel"
-        assert service.watch_dirs["credential"] == temp_export_dir / "cred"
+        assert service.watch_dirs["credential"] == temp_export_dir / "credential"
 
     @pytest.mark.asyncio
     async def test_detect_new_kel_file(
-        self, temp_export_dir, handler, mock_db, mock_hby
+        self, temp_export_dir, handler, mock_db, mock_hby, mock_rgy
     ):
         """Test detecting a new KEL file"""
         from unittest.mock import patch
@@ -132,6 +145,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby,
+                rgy=mock_rgy,
                 db=mock_db,
             )
 
@@ -164,7 +178,7 @@ class TestFileWatchingService:
 
     @pytest.mark.asyncio
     async def test_detect_modified_kel_file(
-        self, temp_export_dir, handler, mock_db, mock_hby
+        self, temp_export_dir, handler, mock_db, mock_hby, mock_rgy
     ):
         """Test detecting a modified KEL file"""
         from unittest.mock import patch
@@ -179,6 +193,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby,
+                rgy=mock_rgy,
                 db=mock_db,
             )
 
@@ -218,7 +233,9 @@ class TestFileWatchingService:
             assert handler.kel_events[1].data == b"modified data"
 
     @pytest.mark.asyncio
-    async def test_detect_tel_file(self, temp_export_dir, handler, mock_db, mock_hby):
+    async def test_detect_tel_file(
+        self, temp_export_dir, handler, mock_db, mock_hby, mock_rgy
+    ):
         """Test detecting TEL file"""
         from unittest.mock import patch
 
@@ -232,6 +249,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby,
+                rgy=mock_rgy,
                 db=mock_db,
             )
 
@@ -255,7 +273,7 @@ class TestFileWatchingService:
 
     @pytest.mark.asyncio
     async def test_detect_credential_file(
-        self, temp_export_dir, handler, mock_db, mock_hby
+        self, temp_export_dir, handler, mock_db, mock_hby, mock_rgy
     ):
         """Test detecting credential file"""
         from unittest.mock import patch
@@ -270,6 +288,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby,
+                rgy=mock_rgy,
                 db=mock_db,
             )
 
@@ -277,7 +296,7 @@ class TestFileWatchingService:
             await asyncio.sleep(0.2)
 
             # Create credential file
-            cred_file = temp_export_dir / "cred" / "test_cred.cesr"
+            cred_file = temp_export_dir / "credential" / "test_cred.cesr"
             cred_file.write_bytes(b"cred data")
 
             await asyncio.sleep(0.3)
@@ -293,7 +312,7 @@ class TestFileWatchingService:
 
     @pytest.mark.asyncio
     async def test_no_duplicate_events_for_unchanged_files(
-        self, temp_export_dir, handler, mock_db, mock_hby
+        self, temp_export_dir, handler, mock_db, mock_hby, mock_rgy
     ):
         """Test that unchanged files don't trigger events"""
         from unittest.mock import patch
@@ -308,6 +327,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby,
+                rgy=mock_rgy,
                 db=mock_db,
             )
 
@@ -337,8 +357,10 @@ class TestFileWatchingService:
         # Create mock objects with proper structure
         mock_hby_test = Mock()
         mock_hby_test.kvy = Mock()
+        mock_hby_test.db = Mock()
 
-        mock_essr_test = Mock()
+        mock_rgy_test = Mock()
+        mock_rgy_test.reger = Mock()
 
         # Create mock_db_test with state tracking
         mock_db_test = Mock()
@@ -366,7 +388,7 @@ class TestFileWatchingService:
                 export_dir=str(temp_export_dir),
                 poll_interval=0.1,
                 hby=mock_hby_test,
-                essr=mock_essr_test,
+                rgy=mock_rgy_test,
                 db=mock_db_test,
             )
 
@@ -387,5 +409,4 @@ class TestFileWatchingService:
             assert len(handler.kel_events) == 1
             event = handler.kel_events[0]
             assert event.hby is mock_hby_test
-            assert event.essr is mock_essr_test
             assert event.db is mock_db_test

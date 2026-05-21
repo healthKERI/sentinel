@@ -17,8 +17,10 @@ from keri import help, kering
 from keri.app.connecting import Organizer
 from keri.app.habbing import Habery
 from keri.core import coring, parsing
+from keri.vdr.credentialing import Regery
 
 from sentinel.core import filing, remoting
+from sentinel.core.credentialing import CredentialLoader
 
 logger = help.ogler.getLogger()
 
@@ -108,7 +110,6 @@ async def delete_account_watcher(essr, eid: str) -> Dict[str, Any]:
 
 
 async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dict:
-
     try:
         # Verify watched identifier is in kevers
         if watched_aid not in hby.kevers:
@@ -178,10 +179,12 @@ class WatchedAdjudicationPoller:
     def __init__(
         self,
         hby: Habery,
+        rgy: Regery,
         essr: APIClient,
         db,
         poll_interval: float = 30.0,
         export_dir: str = "/usr/local/sentinel",
+        registrar_url: Optional[str] = None,
     ):
         """
         Initialize the WatchedAdjudicationPoller.
@@ -192,13 +195,21 @@ class WatchedAdjudicationPoller:
             db: Database instance with watched_poll table
             poll_interval: Polling interval in seconds (default: 30 seconds)
             export_dir: Directory for exporting CESR files (default: /usr/local/sentinel)
+            registrar_url: URL for credential registrar API (default: None)
 
         """
         self.hby = hby
+        self.credential_loader = (
+            None
+            if not registrar_url
+            else CredentialLoader(hby, rgy, export_dir, registrar_url)
+        )
+
         self.essr = essr
         self.db = db
         self.poll_interval = poll_interval
         self.export_dir = export_dir
+
         self.query_done = True
         self._task = None
         self._running = False
@@ -362,6 +373,14 @@ class WatchedAdjudicationPoller:
                         except Exception as e:
                             logger.error(
                                 f"WatchedAdjudicationPoller: Failed to export KEL for {watched_name}: {e}"
+                            )
+
+                        # Trigger credential search if appropriate
+                        if self.credential_loader:
+                            asyncio.create_task(
+                                self.credential_loader.search_for_credentials(
+                                    watched_aid, local_sn, remote_sn
+                                )
                             )
 
                     else:

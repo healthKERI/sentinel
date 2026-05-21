@@ -83,6 +83,14 @@ parser.add_argument(
     help="Directory for exporting CESR files. Default is /usr/local/sentinel.",
 )
 parser.add_argument(
+    "--registrar-url",
+    "-r",
+    action="store",
+    required=False,
+    default=None,
+    help="URL for Registrar if available.",
+)
+parser.add_argument(
     "-V",
     "--version",
     action="version",
@@ -139,6 +147,7 @@ async def async_run_sentinel(args):
             uxd=args.uxd,
             port=int(args.port),
             export_dir=args.export_dir,
+            registrar_url=args.registrar_url,
         )
     else:
         services = await sentineling.setup_hk(
@@ -149,6 +158,7 @@ async def async_run_sentinel(args):
             uxd=args.uxd,
             port=int(args.port),
             export_dir=args.export_dir,
+            registrar_url=args.registrar_url,
         )
 
     # Start all services and collect their tasks

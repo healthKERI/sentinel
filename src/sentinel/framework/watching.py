@@ -11,6 +11,8 @@ from pathlib import Path
 
 from keri.app.habbing import Habery, Hab
 from keri.core import coring, parsing
+from keri.vdr import verifying
+from keri.vdr.eventing import Tevery
 
 from sentinel.framework.events import KELEvent, TELEvent, CredentialEvent
 from sentinel.framework.registry import get_registry
@@ -40,7 +42,7 @@ class FileWatchingService:
         export_dir: str,
         poll_interval: float = 2.0,
         hby=None,
-        essr=None,
+        rgy=None,
         db=None,
     ):
         """
@@ -50,13 +52,15 @@ class FileWatchingService:
             export_dir: Base export directory (e.g., /usr/local/sentinel)
             poll_interval: Polling interval in seconds (default: 2.0)
             hby: Optional Habery instance for KERI operations
-            essr: Optional API client for healthKERI
+            rgy: Optional Regery instance for credentialing operations
             db: Optional database instance
         """
         self.export_dir = Path(export_dir)
         self.poll_interval = poll_interval
         self.hby = hby
-        self.essr = essr
+        self.rgy = rgy
+        self.tvy = Tevery(db=self.hby.db, reger=self.rgy.reger, lax=True, local=True)
+        self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.db = db
         self.registry = get_registry()
         self._task = None
@@ -66,7 +70,7 @@ class FileWatchingService:
         self.watch_dirs = {
             "kel": self.export_dir / "kel",
             "tel": self.export_dir / "tel",
-            "credential": self.export_dir / "cred",
+            "credential": self.export_dir / "credential",
         }
 
     async def run(self):
@@ -158,7 +162,11 @@ class FileWatchingService:
                     aid = filepath.stem
 
                     parsing.Parser().parse(
-                        ims=bytes(data), kvy=self.hby.kvy, local=True
+                        ims=bytes(data),
+                        kvy=self.hby.kvy,
+                        tvy=self.tvy,
+                        vry=self.verifier,
+                        local=True,
                     )
 
                     # Create event object
@@ -174,7 +182,6 @@ class FileWatchingService:
                         data=data,
                         timestamp=mtime,
                         hby=self.hby,
-                        essr=self.essr,
                         db=self.db,
                     )
 

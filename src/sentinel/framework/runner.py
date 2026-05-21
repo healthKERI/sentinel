@@ -23,7 +23,7 @@ def run(
     base: str = "",
     bran: Optional[str] = None,
     hby=None,
-    essr=None,
+    rgy=None,
     db=None,
 ):
     """
@@ -39,7 +39,7 @@ def run(
         base: Optional base directory for KERI database
         bran: Optional passcode for KERI database
         hby: Optional pre-configured Habery instance
-        essr: Optional pre-configured API client
+        rgy: Optional pre-configured Regery instance
         db: Optional pre-configured database
 
     Example:
@@ -79,7 +79,7 @@ def run(
             export_dir=export_dir,
             poll_interval=poll_interval,
             hby=hby,
-            essr=essr,
+            rgy=rgy,
             db=db,
         )
     )
@@ -89,7 +89,7 @@ async def _async_run(
     export_dir: str,
     poll_interval: float,
     hby,
-    essr,
+    rgy,
     db,
 ):
     """
@@ -99,7 +99,7 @@ async def _async_run(
         export_dir: Base export directory to watch
         poll_interval: Polling interval in seconds
         hby: Optional Habery instance
-        essr: Optional API client
+        rgy: Optional Regery instance
         db: Optional database instance
     """
     logger.info("Starting file watching service...")
@@ -109,7 +109,7 @@ async def _async_run(
         export_dir=export_dir,
         poll_interval=poll_interval,
         hby=hby,
-        essr=essr,
+        rgy=rgy,
         db=db,
     )
 

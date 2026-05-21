@@ -425,6 +425,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         """Set up test fixtures"""
         self.mock_hby = Mock()
         self.mock_hby.kevers = {}
+        self.mock_rgy = Mock()
         self.mock_essr = Mock()
         self.mock_db = Mock()
         self.mock_db.watched_poll = Mock()
@@ -433,6 +434,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         """Test poller initialization"""
         poller = WatchedAdjudicationPoller(
             hby=self.mock_hby,
+            rgy=self.mock_rgy,
             essr=self.mock_essr,
             db=self.mock_db,
             poll_interval=15.0,
@@ -451,7 +453,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     def test_init_default_export_dir(self):
         """Test poller initialization with default export_dir"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=15.0
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=15.0,
         )
 
         self.assertEqual(poller.export_dir, "/usr/local/sentinel")
@@ -459,7 +465,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_start(self):
         """Test starting the poller"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.1,
         )
 
         task = poller.start()
@@ -479,7 +489,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_stop(self):
         """Test stopping the poller"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.1,
         )
 
         task = poller.start()
@@ -499,7 +513,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     async def test_run_no_db(self):
         """Test run with no database"""
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=None, poll_interval=0.01
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=None,
+            poll_interval=0.01,
         )
 
         # Run briefly and stop
@@ -522,7 +540,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_db.watched_poll = None
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.01
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.01,
         )
 
         # Run briefly and stop
@@ -562,7 +584,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_hby.kevers = {"ETest123": mock_kever}
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.1,
         )
 
         with patch("sentinel.core.watching.Organizer") as mock_org_class:
@@ -591,7 +617,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=None)
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.1,
         )
 
         await poller._async_poll_adjudications("/adjudications")
@@ -608,7 +638,11 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         self.mock_essr.request = AsyncMock(return_value=mock_response)
 
         poller = WatchedAdjudicationPoller(
-            hby=self.mock_hby, essr=self.mock_essr, db=self.mock_db, poll_interval=0.1
+            hby=self.mock_hby,
+            rgy=self.mock_rgy,
+            essr=self.mock_essr,
+            db=self.mock_db,
+            poll_interval=0.1,
         )
 
         await poller._async_poll_adjudications("/adjudications")

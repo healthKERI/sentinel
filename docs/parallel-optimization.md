@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Receiptor and Sentinal classes have been optimized to use `asyncio.gather()` for parallel witness queries, significantly improving performance when dealing with multiple witnesses.
+The Receiptor and Sentinel classes have been optimized to use `asyncio.gather()` for parallel witness queries, significantly improving performance when dealing with multiple witnesses.
 
 ## Optimizations Implemented
 
@@ -71,7 +71,7 @@ for i in range(0, len(events), batch_size):
     await asyncio.gather(*tasks, return_exceptions=True)
 ```
 
-### 4. Sentinal.watch() - Parallel Witness State Queries
+### 4. Sentinel.watch() - Parallel Witness State Queries
 
 **Before:**
 - Sequential key state notice (KSN) queries to each witness
@@ -171,7 +171,7 @@ logger.debug(f"Catching up witness {wit} with {len(events)} events in batches of
 - `_query_witness_for_receipt(hab, wit, msg, auths)`: Query single witness for receipt
 - `_propagate_receipt_to_witness(hab, wit, msg_bytes)`: Propagate receipt to single witness
 
-**Sentinal class:**
+**Sentinel class:**
 - `_query_single_witness(wit, kever, receiptor, queryTimestamp)`: Query single witness for key state
 
 ### Backward Compatibility
