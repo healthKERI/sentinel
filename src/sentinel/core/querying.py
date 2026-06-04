@@ -14,7 +14,11 @@ from urllib.parse import urljoin
 
 import httpx
 from keri import kering, core
-from keri.app.httping import CESR_DESTINATION_HEADER, CESR_CONTENT_TYPE, CESR_ATTACHMENT_HEADER
+from keri.app.httping import (
+    CESR_DESTINATION_HEADER,
+    CESR_CONTENT_TYPE,
+    CESR_ATTACHMENT_HEADER,
+)
 from keri.core import serdering, coring, eventing
 
 logger = logging.getLogger(__name__)
@@ -93,7 +97,9 @@ class Receiptor:
         )
         return urljoin(base, path)
 
-    async def _post_cesr(self, url: str, dest: str, msg: bytearray, headers: Optional[dict] = None) -> httpx.Response:
+    async def _post_cesr(
+        self, url: str, dest: str, msg: bytearray, headers: Optional[dict] = None
+    ) -> httpx.Response:
         """Post CESR-encoded data to witness endpoint
 
         Parameters:
@@ -108,10 +114,12 @@ class Receiptor:
         headers = headers or {}
         try:
             serder = serdering.SerderKERI(raw=msg)
-        except kering.ShortageError as ex:  # need more bytes
-            raise kering.ExtractionError("unable to extract a valid message to send as HTTP")
+        except kering.ShortageError:  # need more bytes
+            raise kering.ExtractionError(
+                "unable to extract a valid message to send as HTTP"
+            )
         else:  # extracted successfully
-            del msg[:serder.size]  # strip off event from front of ims
+            del msg[: serder.size]  # strip off event from front of ims
 
         attachments = bytes(msg)
         body = serder.raw
@@ -204,7 +212,7 @@ class Receiptor:
             logger.error(f"unable to propagate receipts to witness {wit}: {e}")
             return False
 
-    async def receipt(self, pre, sn=None, auths: Optional[dict]=None):
+    async def receipt(self, pre, sn=None, auths: Optional[dict] = None):
         """Submit designated event to witnesses for receipts
 
         Submits the event to witnesses using the synchronous witness API,
@@ -255,6 +263,7 @@ class Receiptor:
         for result in results:
             if isinstance(result, Exception):
                 import traceback
+
                 traceback.print_exception(type(result), result, result.__traceback__)
                 logger.error(f"Exception during witness query: {result}")
                 continue
@@ -273,14 +282,14 @@ class Receiptor:
 
                 msg_bytes = bytearray()
                 if ser.ked["t"] in (
-                        coring.Ilks.icp,
-                        coring.Ilks.dip,
+                    coring.Ilks.icp,
+                    coring.Ilks.dip,
                 ):  # introduce new witnesses
                     from keri.app.agenting import schemes
 
                     msg_bytes.extend(schemes(self.hby.db, eids=ewits))
                 elif ser.ked["t"] in (coring.Ilks.rot, coring.Ilks.drt) and (
-                        "ba" in ser.ked and wit in ser.ked["ba"]
+                    "ba" in ser.ked and wit in ser.ked["ba"]
                 ):  # Newly added witness, introduce to all
                     from keri.app.agenting import schemes
 
@@ -469,7 +478,8 @@ class Receiptor:
 
                 # Send this batch in parallel
                 tasks = [
-                    self._post_cesr(url, wit, bytearray(fmsg), headers) for fmsg in batch
+                    self._post_cesr(url, wit, bytearray(fmsg), headers)
+                    for fmsg in batch
                 ]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 

@@ -52,7 +52,13 @@ parser.add_argument(
 )
 parser.add_argument("--watched", "-W", help="the watched AID or alias to add")
 parser.add_argument("--oobi", "-o", help="the OOBI for the watched AID")
-parser.add_argument("--url", "-u", help="The HTTP/CESR endpoint to PUT the registration", required=False, default=None)
+parser.add_argument(
+    "--url",
+    "-u",
+    help="The HTTP/CESR endpoint to PUT the registration",
+    required=False,
+    default=None,
+)
 
 
 def add(args):

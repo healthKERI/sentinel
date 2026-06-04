@@ -4,7 +4,7 @@ Unit tests for sentinel.core.authing module
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from collections import namedtuple
 
 from keri import kering
@@ -44,7 +44,7 @@ class TestAuthenticater(unittest.TestCase):
             "@path",
             "Content-Length",
             "Signify-Resource",
-            "Signify-Timestamp"
+            "Signify-Timestamp",
         ]
 
         self.assertEqual(Authenticater.DefaultFields, expected_fields)
@@ -61,7 +61,7 @@ class TestAuthenticater(unittest.TestCase):
         mock_rep.headers = {
             "SIGNIFY-RESOURCE": "EAgentPrefix456",
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock verifysig to return True
@@ -85,7 +85,7 @@ class TestAuthenticater(unittest.TestCase):
         mock_rep.request = mock_request
         mock_rep.headers = {
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Should raise AuthNError
@@ -106,7 +106,7 @@ class TestAuthenticater(unittest.TestCase):
         mock_rep.headers = {
             "SIGNIFY-RESOURCE": "EWrongPrefix789",
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock verifysig to return False
@@ -130,7 +130,7 @@ class TestAuthenticater(unittest.TestCase):
         mock_rep.headers = {
             "SIGNIFY-RESOURCE": "EAgentPrefix456",
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock verifysig to return False
@@ -145,9 +145,7 @@ class TestAuthenticater(unittest.TestCase):
     @patch("sentinel.core.authing.ending.desiginput")
     def test_verifysig_missing_signature_input(self, mock_desiginput):
         """Test verifysig returns False when SIGNATURE-INPUT header is missing"""
-        headers = {
-            "SIGNATURE": "signify=:test_signature:"
-        }
+        headers = {"SIGNATURE": "signify=:test_signature:"}
 
         result = self.auth.verifysig(headers, "GET", "/api/test")
 
@@ -157,9 +155,7 @@ class TestAuthenticater(unittest.TestCase):
     @patch("sentinel.core.authing.ending.desiginput")
     def test_verifysig_missing_signature(self, mock_desiginput):
         """Test verifysig returns False when SIGNATURE header is missing"""
-        headers = {
-            "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890'
-        }
+        headers = {"SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890'}
 
         result = self.auth.verifysig(headers, "GET", "/api/test")
 
@@ -173,12 +169,12 @@ class TestAuthenticater(unittest.TestCase):
         """Test verifysig returns False when no 'signify' input is found"""
         headers = {
             "SIGNATURE-INPUT": 'other=("@method" "@path");created=1234567890',
-            "SIGNATURE": "other=:test_signature:"
+            "SIGNATURE": "other=:test_signature:",
         }
 
         # Mock desiginput to return non-signify input
-        MockInput = namedtuple('MockInput', ['name', 'fields'])
-        mock_input = MockInput(name='other', fields=['@method', '@path'])
+        MockInput = namedtuple("MockInput", ["name", "fields"])
+        mock_input = MockInput(name="other", fields=["@method", "@path"])
         mock_desiginput.return_value = [mock_input]
 
         result = self.auth.verifysig(headers, "GET", "/api/test")
@@ -195,32 +191,41 @@ class TestAuthenticater(unittest.TestCase):
         """Test successful signature verification with @method and @path fields"""
         headers = {
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock desiginput
         MockInput = namedtuple(
-            'MockInput',
-            ['name', 'fields', 'created', 'expires', 'nonce', 'keyid', 'context', 'alg']
+            "MockInput",
+            [
+                "name",
+                "fields",
+                "created",
+                "expires",
+                "nonce",
+                "keyid",
+                "context",
+                "alg",
+            ],
         )
         mock_input = MockInput(
-            name='signify',
-            fields=['@method', '@path'],
+            name="signify",
+            fields=["@method", "@path"],
             created=1234567890,
             expires=None,
             nonce=None,
             keyid="EHabPrefix123",
             context=None,
-            alg="ed25519"
+            alg="ed25519",
         )
         mock_desiginput.return_value = [mock_input]
 
         # Mock designature
-        MockCig = namedtuple('MockCig', ['raw'])
+        MockCig = namedtuple("MockCig", ["raw"])
         mock_cig = MockCig(raw=b"test_signature_bytes")
 
-        MockSignage = namedtuple('MockSignage', ['markers'])
-        mock_signage = MockSignage(markers={'signify': mock_cig})
+        MockSignage = namedtuple("MockSignage", ["markers"])
+        mock_signage = MockSignage(markers={"signify": mock_cig})
         mock_designature.return_value = [mock_signage]
 
         # Mock verifier
@@ -244,23 +249,32 @@ class TestAuthenticater(unittest.TestCase):
             "SIGNATURE-INPUT": 'signify=("@method" "@path" "content-length" "signify-resource");created=1234567890',
             "SIGNATURE": "signify=:test_signature:",
             "CONTENT-LENGTH": "1234",
-            "SIGNIFY-RESOURCE": "EHabPrefix123"
+            "SIGNIFY-RESOURCE": "EHabPrefix123",
         }
 
         # Mock desiginput
         MockInput = namedtuple(
-            'MockInput',
-            ['name', 'fields', 'created', 'expires', 'nonce', 'keyid', 'context', 'alg']
+            "MockInput",
+            [
+                "name",
+                "fields",
+                "created",
+                "expires",
+                "nonce",
+                "keyid",
+                "context",
+                "alg",
+            ],
         )
         mock_input = MockInput(
-            name='signify',
-            fields=['@method', '@path', 'content-length', 'signify-resource'],
+            name="signify",
+            fields=["@method", "@path", "content-length", "signify-resource"],
             created=1234567890,
             expires=None,
             nonce=None,
             keyid="EHabPrefix123",
             context=None,
-            alg="ed25519"
+            alg="ed25519",
         )
         mock_desiginput.return_value = [mock_input]
 
@@ -268,11 +282,11 @@ class TestAuthenticater(unittest.TestCase):
         mock_normalize.side_effect = lambda x: f'"{x}"'
 
         # Mock designature
-        MockCig = namedtuple('MockCig', ['raw'])
+        MockCig = namedtuple("MockCig", ["raw"])
         mock_cig = MockCig(raw=b"test_signature_bytes")
 
-        MockSignage = namedtuple('MockSignage', ['markers'])
-        mock_signage = MockSignage(markers={'signify': mock_cig})
+        MockSignage = namedtuple("MockSignage", ["markers"])
+        mock_signage = MockSignage(markers={"signify": mock_cig})
         mock_designature.return_value = [mock_signage]
 
         # Mock verifier
@@ -293,33 +307,42 @@ class TestAuthenticater(unittest.TestCase):
         """Test verifysig skips fields when headers are missing"""
         headers = {
             "SIGNATURE-INPUT": 'signify=("@method" "@path" "missing-header");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
             # missing-header is not present
         }
 
         # Mock desiginput
         MockInput = namedtuple(
-            'MockInput',
-            ['name', 'fields', 'created', 'expires', 'nonce', 'keyid', 'context', 'alg']
+            "MockInput",
+            [
+                "name",
+                "fields",
+                "created",
+                "expires",
+                "nonce",
+                "keyid",
+                "context",
+                "alg",
+            ],
         )
         mock_input = MockInput(
-            name='signify',
-            fields=['@method', '@path', 'missing-header'],
+            name="signify",
+            fields=["@method", "@path", "missing-header"],
             created=1234567890,
             expires=None,
             nonce=None,
             keyid=None,
             context=None,
-            alg=None
+            alg=None,
         )
         mock_desiginput.return_value = [mock_input]
 
         # Mock designature
-        MockCig = namedtuple('MockCig', ['raw'])
+        MockCig = namedtuple("MockCig", ["raw"])
         mock_cig = MockCig(raw=b"test_signature_bytes")
 
-        MockSignage = namedtuple('MockSignage', ['markers'])
-        mock_signage = MockSignage(markers={'signify': mock_cig})
+        MockSignage = namedtuple("MockSignage", ["markers"])
+        mock_signage = MockSignage(markers={"signify": mock_cig})
         mock_designature.return_value = [mock_signage]
 
         # Mock verifier
@@ -340,32 +363,41 @@ class TestAuthenticater(unittest.TestCase):
         """Test verifysig raises AuthNError when signature verification fails"""
         headers = {
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock desiginput
         MockInput = namedtuple(
-            'MockInput',
-            ['name', 'fields', 'created', 'expires', 'nonce', 'keyid', 'context', 'alg']
+            "MockInput",
+            [
+                "name",
+                "fields",
+                "created",
+                "expires",
+                "nonce",
+                "keyid",
+                "context",
+                "alg",
+            ],
         )
         mock_input = MockInput(
-            name='signify',
-            fields=['@method', '@path'],
+            name="signify",
+            fields=["@method", "@path"],
             created=1234567890,
             expires=None,
             nonce=None,
             keyid=None,
             context=None,
-            alg=None
+            alg=None,
         )
         mock_desiginput.return_value = [mock_input]
 
         # Mock designature
-        MockCig = namedtuple('MockCig', ['raw'])
+        MockCig = namedtuple("MockCig", ["raw"])
         mock_cig = MockCig(raw=b"test_signature_bytes")
 
-        MockSignage = namedtuple('MockSignage', ['markers'])
-        mock_signage = MockSignage(markers={'signify': mock_cig})
+        MockSignage = namedtuple("MockSignage", ["markers"])
+        mock_signage = MockSignage(markers={"signify": mock_cig})
         mock_designature.return_value = [mock_signage]
 
         # Mock verifier to return False (invalid signature)
@@ -387,32 +419,41 @@ class TestAuthenticater(unittest.TestCase):
         """Test verifysig with all optional parameters (expires, nonce, keyid, context, alg)"""
         headers = {
             "SIGNATURE-INPUT": 'signify=("@method" "@path");created=1234567890;expires=1234567900;nonce="abc123";keyid="EKey123";context="test";alg="ed25519"',
-            "SIGNATURE": "signify=:test_signature:"
+            "SIGNATURE": "signify=:test_signature:",
         }
 
         # Mock desiginput with all optional fields
         MockInput = namedtuple(
-            'MockInput',
-            ['name', 'fields', 'created', 'expires', 'nonce', 'keyid', 'context', 'alg']
+            "MockInput",
+            [
+                "name",
+                "fields",
+                "created",
+                "expires",
+                "nonce",
+                "keyid",
+                "context",
+                "alg",
+            ],
         )
         mock_input = MockInput(
-            name='signify',
-            fields=['@method', '@path'],
+            name="signify",
+            fields=["@method", "@path"],
             created=1234567890,
             expires=1234567900,
             nonce="abc123",
             keyid="EKey123",
             context="test",
-            alg="ed25519"
+            alg="ed25519",
         )
         mock_desiginput.return_value = [mock_input]
 
         # Mock designature
-        MockCig = namedtuple('MockCig', ['raw'])
+        MockCig = namedtuple("MockCig", ["raw"])
         mock_cig = MockCig(raw=b"test_signature_bytes")
 
-        MockSignage = namedtuple('MockSignage', ['markers'])
-        mock_signage = MockSignage(markers={'signify': mock_cig})
+        MockSignage = namedtuple("MockSignage", ["markers"])
+        mock_signage = MockSignage(markers={"signify": mock_cig})
         mock_designature.return_value = [mock_signage]
 
         # Mock verifier
@@ -431,7 +472,9 @@ class TestAuthenticater(unittest.TestCase):
 
         # Mock siginput return values
         mock_qsig = Mock()
-        mock_header = {"Signature-Input": 'signify=("@method" "@path");created=1234567890'}
+        mock_header = {
+            "Signature-Input": 'signify=("@method" "@path");created=1234567890'
+        }
         mock_siginput.return_value = (mock_header, mock_qsig)
 
         # Mock signature return values
@@ -449,7 +492,7 @@ class TestAuthenticater(unittest.TestCase):
             fields=Authenticater.DefaultFields,
             hab=self.mock_hab,
             alg="ed25519",
-            keyid=self.mock_hab.pre
+            keyid=self.mock_hab.pre,
         )
 
         # Verify signature was called
@@ -468,7 +511,9 @@ class TestAuthenticater(unittest.TestCase):
 
         # Mock siginput return values
         mock_qsig = Mock()
-        mock_header = {"Signature-Input": 'signify=("@method" "@path" "custom-header");created=1234567890'}
+        mock_header = {
+            "Signature-Input": 'signify=("@method" "@path" "custom-header");created=1234567890'
+        }
         mock_siginput.return_value = (mock_header, mock_qsig)
 
         # Mock signature return values
@@ -486,7 +531,7 @@ class TestAuthenticater(unittest.TestCase):
             fields=custom_fields,
             hab=self.mock_hab,
             alg="ed25519",
-            keyid=self.mock_hab.pre
+            keyid=self.mock_hab.pre,
         )
 
         # Verify headers contain original and new headers
@@ -554,7 +599,7 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Content-Length": "12",
             "Signature-Input": "test_input",
-            "Signature": "test_signature"
+            "Signature": "test_signature",
         }
         self.mock_authn.sign.return_value = signed_headers
 
@@ -594,13 +639,13 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Resource": "EHabPrefix123",
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Signature-Input": "test_input",
-            "Signature": "test_signature"
+            "Signature": "test_signature",
         }
         self.mock_authn.sign.return_value = signed_headers
 
         # Execute
         gen = self.request_auth.auth_flow(mock_request)
-        result = next(gen)
+        next(gen)
 
         # Verify path defaults to "/"
         call_args = self.mock_authn.sign.call_args
@@ -623,13 +668,13 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Resource": "EHabPrefix123",
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Signature-Input": "test_input",
-            "Signature": "test_signature"
+            "Signature": "test_signature",
         }
         self.mock_authn.sign.return_value = signed_headers
 
         # Execute
         gen = self.request_auth.auth_flow(mock_request)
-        result = next(gen)
+        next(gen)
 
         # Verify Content-Length was not added
         call_args = self.mock_authn.sign.call_args
@@ -653,13 +698,13 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Content-Length": "999",
             "Signature-Input": "test_input",
-            "Signature": "test_signature"
+            "Signature": "test_signature",
         }
         self.mock_authn.sign.return_value = signed_headers
 
         # Execute
         gen = self.request_auth.auth_flow(mock_request)
-        result = next(gen)
+        next(gen)
 
         # Verify Content-Length was not overwritten
         call_args = self.mock_authn.sign.call_args
@@ -682,13 +727,13 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Resource": "EHabPrefix123",
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Signature-Input": "test_input",
-            "Signature": "test_signature"
+            "Signature": "test_signature",
         }
         self.mock_authn.sign.return_value = signed_headers
 
         # Execute
         gen = self.request_auth.auth_flow(mock_request)
-        result = next(gen)
+        next(gen)
 
         # Verify Content-Length was not added (empty content is falsy)
         call_args = self.mock_authn.sign.call_args
@@ -712,7 +757,7 @@ class TestRequestAuth(unittest.TestCase):
             "Signify-Timestamp": "2024-01-01T12:00:00Z",
             "Signature-Input": "test_input",
             "Signature": "test_signature",
-            "Existing-Header": "value"
+            "Existing-Header": "value",
         }
         self.mock_authn.sign.return_value = signed_headers
 
@@ -740,7 +785,7 @@ class TestRequestAuth(unittest.TestCase):
 
         # Execute
         gen = self.request_auth.auth_flow(mock_request)
-        result = next(gen)
+        next(gen)
 
         # Verify generator completes (raises StopIteration)
         with self.assertRaises(StopIteration):

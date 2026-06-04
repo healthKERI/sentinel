@@ -120,7 +120,7 @@ class CredentialLoader:
 
         url = f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true&chains=true"
 
-        async with httpx.AsyncClient(auth=self.auth) as client:
+        async with httpx.AsyncClient() as client:
             for attempt in range(1, max_attempts + 1):
                 try:
                     logger.debug(

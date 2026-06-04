@@ -3,6 +3,7 @@
 sentinel.core.authing module
 
 """
+
 import typing
 from urllib.parse import urlparse, urlsplit
 
@@ -15,14 +16,16 @@ from keri.help import helping
 
 
 class Authenticater:
-    DefaultFields = ["@method",
-                     "@path",
-                     "Content-Length",
-                     "Signify-Resource",
-                     "Signify-Timestamp"]
+    DefaultFields = [
+        "@method",
+        "@path",
+        "Content-Length",
+        "Signify-Resource",
+        "Signify-Timestamp",
+    ]
 
     def __init__(self, hab: Hab, agent: typing.Optional[Kever]):
-        """ Create Agent Authenticator for verifying requests and signing responses
+        """Create Agent Authenticator for verifying requests and signing responses
 
         Parameters:
             hab(Hab): habitat of Agent for signing responses
@@ -41,7 +44,9 @@ class Authenticater:
             raise kering.AuthNError("No valid signature from agent on response.")
 
         resource = rep.headers["SIGNIFY-RESOURCE"]
-        if resource != self.agent.serder.pre or not self.verifysig(rep.headers, rep.request.method, url.path):
+        if resource != self.agent.serder.pre or not self.verifysig(
+            rep.headers, rep.request.method, url.path
+        ):
             raise kering.AuthNError("No valid signature from agent on response.")
 
     def verifysig(self, headers, method, path):
@@ -92,7 +97,7 @@ class Authenticater:
             if inputage.alg is not None:
                 values.append(f"alg={inputage.alg}")
 
-            params = ';'.join(values)
+            params = ";".join(values)
 
             items.append(f'"@signature-params: {params}"')
             ser = "\n".join(items).encode("utf-8")
@@ -105,7 +110,7 @@ class Authenticater:
         return True
 
     def sign(self, headers, method, path, fields=None):
-        """ Generate and add Signature Input and Signature fields to headers
+        """Generate and add Signature Input and Signature fields to headers
 
         Parameters:
             headers (dict): HTTP header to sign
@@ -121,13 +126,27 @@ class Authenticater:
         if fields is None:
             fields = self.DefaultFields
 
-        header, qsig = ending.siginput("signify", method, path, headers, fields=fields, hab=self.hab,
-                                       alg="ed25519", keyid=self.hab.pre)
+        header, qsig = ending.siginput(
+            "signify",
+            method,
+            path,
+            headers,
+            fields=fields,
+            hab=self.hab,
+            alg="ed25519",
+            keyid=self.hab.pre,
+        )
         for key, val in header.items():
             headers[key] = val
 
-        signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
-                                 kind=None)
+        signage = ending.Signage(
+            markers=dict(signify=qsig),
+            indexed=False,
+            signer=None,
+            ordinal=None,
+            digest=None,
+            kind=None,
+        )
         for key, val in ending.signature([signage]).items():
             headers[key] = val
 
@@ -147,8 +166,8 @@ class RequestAuth(Auth):
 
     def auth_flow(self, req: Request) -> typing.Generator[Request, Response, None]:
         headers = req.headers
-        headers['Signify-Resource'] = self.authn.hab.pre
-        headers['Signify-Timestamp'] = helping.nowIso8601()
+        headers["Signify-Resource"] = self.authn.hab.pre
+        headers["Signify-Timestamp"] = helping.nowIso8601()
 
         if "Content-Length" not in headers and req.content:
             headers["Content-Length"] = len(req.content)
