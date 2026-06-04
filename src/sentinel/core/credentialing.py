@@ -14,6 +14,7 @@ from keri import help
 from keri.vdr import verifying
 
 from sentinel.core import filing
+from sentinel.core.authing import RequestAuth, Authenticater
 
 logger = help.ogler.getLogger()
 
@@ -33,7 +34,7 @@ class CredentialLoader:
     and parser (CESR message parsing) to provide end-to-end credential management.
     """
 
-    def __init__(self, hby, rgy, export_dir, registrar_url):
+    def __init__(self, hby, hab, rgy, export_dir, registrar_url):
         """
         Initialize the CredentialLoader withhabery, registry, and configuration.
 
@@ -42,12 +43,14 @@ class CredentialLoader:
 
         Parameters:
             hby: Habery instance containing the key event log and database
+            hab: Hab instance for credential verification and signing
             rgy: Registry instance for managing credential registry operations
             export_dir: Directory path where exported credentials will be stored
             registrar_url: Base URL of the registrar service for credential retrieval
 
         Attributes:
             hby: The habery instance
+            hab: The hab instance for credential verification and signing
             rgy: The registry instance
             verifier: Verifier instance for credential verification
             psr: Parser instance for parsing credential and key event data
@@ -55,9 +58,12 @@ class CredentialLoader:
             registrar_url: URL of the registrar service
         """
         self.hby = hby
+        self.hab = hab
         self.rgy = rgy
         self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.psr = parsing.Parser(kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier)
+        authn = Authenticater(hab=self.hab, agent=None)
+        self.auth = RequestAuth(authn)
 
         self.export_dir = export_dir
         self.registrar_url = registrar_url
@@ -114,7 +120,7 @@ class CredentialLoader:
 
         url = f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true&chains=true"
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(auth=self.auth) as client:
             for attempt in range(1, max_attempts + 1):
                 try:
                     logger.debug(

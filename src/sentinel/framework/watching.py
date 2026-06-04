@@ -249,7 +249,7 @@ class LocalWatcherConnector:
         # Socket path based on server's AID prefix
         self.socket_path = f"/tmp/sentinel_{watcher}.sock"
 
-    def watch(self, aid: str, oobi) -> bool:
+    def watch(self, aid: str, oobi) -> bytes:
         """
         Send watch request for an AID to local sentinel.
 
@@ -261,7 +261,7 @@ class LocalWatcherConnector:
             oobi: Out-of-band introduction for the AID
 
         Returns:
-            True if message sent successfully, False otherwise
+            bytes: The raw message sent to the sentinel watcher
 
         Raises:
             ConnectionError: If unable to connect to sentinel socket
@@ -290,7 +290,7 @@ class LocalWatcherConnector:
                 # Send the message
                 sock.sendall(msg)
 
-                return True
+                return msg
 
             finally:
                 # Always close the socket

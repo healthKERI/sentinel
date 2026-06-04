@@ -199,13 +199,13 @@ class WatchedAdjudicationPoller:
 
         """
         self.hby = hby
+        self.essr = essr
         self.credential_loader = (
             None
             if not registrar_url
-            else CredentialLoader(hby, rgy, export_dir, registrar_url)
+            else CredentialLoader(hby, self.essr.hab, rgy, export_dir, registrar_url)
         )
 
-        self.essr = essr
         self.db = db
         self.poll_interval = poll_interval
         self.export_dir = export_dir

@@ -7,6 +7,7 @@ sentinel.app.cli.commands module
 
 import argparse
 
+import requests
 from keri import help
 from keri.app import connecting
 from keri.app.cli.common import existing
@@ -51,6 +52,7 @@ parser.add_argument(
 )
 parser.add_argument("--watched", "-W", help="the watched AID or alias to add")
 parser.add_argument("--oobi", "-o", help="the OOBI for the watched AID")
+parser.add_argument("--url", "-u", help="The HTTP/CESR endpoint to PUT the registration", required=False, default=None)
 
 
 def add(args):
@@ -90,4 +92,9 @@ def add(args):
             raise ValueError(f"unknown watched {args.watched}")
 
         local_watcher_connector = LocalWatcherConnector(hby, hab, watr)
-        local_watcher_connector.watch(watd, args.oobi)
+        msg = local_watcher_connector.watch(watd, args.oobi)
+
+        if args.url:
+            response = requests.put(args.url, data=msg)
+            if response.status_code != 204:
+                raise RuntimeError(f"Failed to register with watcher: {response.text}")

@@ -358,7 +358,7 @@ class Sentinel:
         self.credential_loader = (
             None
             if not registrar_url
-            else CredentialLoader(hby, rgy, export_dir, registrar_url)
+            else CredentialLoader(hby, hab, rgy, export_dir, registrar_url)
         )
 
         self._task = None
