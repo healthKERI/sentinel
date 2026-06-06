@@ -118,7 +118,9 @@ class CredentialLoader:
         base_delay = 1.0  # Start with 1 second
         max_attempts = 10
 
-        url = f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true&chains=true"
+        url = (
+            f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true"
+        )
 
         async with httpx.AsyncClient() as client:
             for attempt in range(1, max_attempts + 1):
