@@ -13,6 +13,7 @@ from keri import help
 from keri.vdr import credentialing
 
 from sentinel.core.eventing import sync_server_key_state
+from sentinel.core.oobiing import Oobiery
 from sentinel.core.watching import WatchedAdjudicationPoller, ObvsSocketListener
 from sentinel.core.witnessing import LocalSocketListener
 from sentinel.db.basing import SentinelBaser
@@ -30,7 +31,6 @@ async def setup_local(
     base: str,
     bran: str,
     uxd: bool,
-    port: int,
     export_dir: str = "/usr/local/sentinel",
     registrar_url: str | None = None,
 ) -> List:
@@ -45,7 +45,6 @@ async def setup_local(
         base: The base directory path for sentinel data storage
         bran: The passcode for the sentinel instance
         uxd: Flag indicating whether to use Unix domain socket
-        port: The port number for network communication
         export_dir: Directory for exporting CESR files (default: /usr/local/sentinel)
         registrar_url: URL for Registrar if available
 
@@ -82,6 +81,26 @@ async def setup_local(
     )
     services.append(watcher)
 
+    oobiery = Oobiery(hby=hby, rvy=watcher.rvy)
+    services.append(oobiery)
+
+    # Initialize watched identifiers on startup
+    if registrar_url:
+        logger.info("Running startup adjudication and credential scan (local mode)")
+        from sentinel.app import startup
+
+        await startup.initialize_watched_credentials(
+            hby=hby,
+            hab=hab,
+            rgy=rgy,
+            db=db,
+            export_dir=export_dir,
+            registrar_url=registrar_url,
+            essr=None,  # Local mode doesn't use essr
+        )
+    else:
+        logger.info("No registrar URL configured, skipping credential scan")
+
     # Optional: Unix domain socket listener for real-time updates
     if uxd:
         socket_path = f"/tmp/sentinel_{hab.pre}.sock"
@@ -99,7 +118,6 @@ async def setup_hk(
     base: str,
     bran: str,
     uxd: bool,
-    port: int,
     export_dir: str,
     registrar_url: str | None = None,
 ) -> List:
@@ -115,7 +133,6 @@ async def setup_hk(
         base: The base directory path for sentinel data storage
         bran: The passcode for the sentinel instance
         uxd: Flag indicating whether to use Unix domain socket
-        port: The port number for network communication
         export_dir: Directory for exporting CESR files
         registrar_url: URL for credential registrar
 
@@ -147,6 +164,20 @@ async def setup_hk(
     )
 
     services.append(poller)
+
+    # Initialize watched identifiers on startup
+    logger.info("Running startup adjudication and credential scan (healthKERI mode)")
+    from sentinel.app import startup
+
+    await startup.initialize_watched_credentials(
+        hby=hby,
+        hab=hab,
+        rgy=rgy,
+        db=db,
+        export_dir=export_dir,
+        registrar_url=registrar_url,
+        essr=essr,
+    )
 
     if uxd:
         socket_path = f"/tmp/sentinel_{hab.pre}.sock"

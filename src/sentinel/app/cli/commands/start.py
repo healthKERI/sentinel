@@ -54,13 +54,6 @@ parser.add_argument(
     help="Listen on Unix Domain Sockets interface instead of TCP",
 )
 parser.add_argument(
-    "--port",
-    "-P",
-    action="store",
-    default=35776,
-    help="Local port number the Sentinel server listens on. Default is 35776.",
-)
-parser.add_argument(
     "--loglevel",
     action="store",
     required=False,
@@ -145,7 +138,6 @@ async def async_run_sentinel(args):
             base=args.base,
             bran=args.bran,
             uxd=args.uxd,
-            port=int(args.port),
             export_dir=args.export_dir,
             registrar_url=args.registrar_url,
         )
@@ -156,7 +148,6 @@ async def async_run_sentinel(args):
             base=args.base,
             bran=args.bran,
             uxd=args.uxd,
-            port=int(args.port),
             export_dir=args.export_dir,
             registrar_url=args.registrar_url,
         )

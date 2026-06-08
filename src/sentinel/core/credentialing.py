@@ -78,12 +78,14 @@ class CredentialLoader:
 
         Args:
             pre: The prefix (AID) of the watched identifier
-            local_sn: The local sequence number (starting point, exclusive)
+            local_sn: The local sequence number (starting point, inclusive)
             remote_sn: The remote sequence number (ending point, inclusive)
         """
 
-        for sn in range(local_sn + 1, remote_sn + 1):
+        for sn in range(local_sn, remote_sn):
             pdig = self.hby.db.getKeLast(dbing.snKey(pre, sn))
+            if not pdig:
+                continue
 
             evt_key = dbing.dgKey(pre, bytes(pdig))  # get message
             raw = self.hby.db.getEvt(key=evt_key)
@@ -116,7 +118,7 @@ class CredentialLoader:
         import httpx
 
         base_delay = 1.0  # Start with 1 second
-        max_attempts = 10
+        max_attempts = 5
 
         url = (
             f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true"
