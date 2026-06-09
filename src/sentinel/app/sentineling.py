@@ -160,7 +160,13 @@ async def setup_hk(
     await sync_server_key_state(name, alias, base, bran, essr)
 
     poller = WatchedAdjudicationPoller(
-        hby=hby, rgy=rgy, essr=essr, db=db, poll_interval=15.0, export_dir=export_dir
+        hby=hby,
+        rgy=rgy,
+        essr=essr,
+        db=db,
+        poll_interval=15.0,
+        export_dir=export_dir,
+        registrar_url=registrar_url,
     )
 
     services.append(poller)
@@ -182,7 +188,13 @@ async def setup_hk(
     if uxd:
         socket_path = f"/tmp/sentinel_{hab.pre}.sock"
         socket_listener = ObvsSocketListener(
-            hby=hby, essr=essr, db=db, socket_path=socket_path, poll_interval=0.5
+            hby=hby,
+            essr=essr,
+            db=db,
+            socket_path=socket_path,
+            poll_interval=0.5,
+            registrar_url=registrar_url,
+            export_dir=export_dir,
         )
         services.append(socket_listener)
 

@@ -343,6 +343,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             db=mock_db,
             poll_interval=15.0,
             export_dir="/tmp/export",
+            registrar_url=None,
         )
 
         # Verify ObvsSocketListener was NOT created
@@ -451,6 +452,7 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             db=mock_db,
             poll_interval=15.0,
             export_dir="/tmp/export",
+            registrar_url=None,
         )
 
         # Verify ObvsSocketListener initialization with correct socket path
@@ -461,6 +463,8 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             db=mock_db,
             socket_path=expected_socket_path,
             poll_interval=0.5,
+            registrar_url=None,
+            export_dir="/tmp/export",
         )
 
         # Verify result contains both services

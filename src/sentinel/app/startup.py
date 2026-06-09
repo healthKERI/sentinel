@@ -423,7 +423,7 @@ async def scan_kel_for_credentials(
         # Scan from sn=0 to current_sn (search_for_credentials uses local_sn + 1, so pass -1 to start from 0)
         await credential_loader.search_for_credentials(
             pre=oid,
-            local_sn=-1,  # Will scan from sn=0 (local_sn + 1)
+            local_sn=0,  # Will scan from sn=0 (local_sn + 1)
             remote_sn=current_sn,
         )
 

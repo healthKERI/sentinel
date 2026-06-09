@@ -24,6 +24,7 @@ from keri.vdr.eventing import Tevery
 
 from sentinel.core import querying, filing
 from sentinel.core.credentialing import CredentialLoader
+from sentinel.core.watching import resolve_identifier_kel
 from sentinel.db.basing import States, WitnessState, WitnessQuery
 
 logger = help.ogler.getLogger()
@@ -820,8 +821,26 @@ class LocalSocketListener:
                             f"name={getattr(observed, 'name', 'N/A')}, datetime={observed.datetime}"
                         )
 
+                        # Resolve identifier KEL if needed
+                        result = await resolve_identifier_kel(
+                            hby=self.hby,
+                            aid=oid,
+                            registrar_url=self.watcher.registrar_url,
+                            export_dir=self.watcher.export_dir,
+                        )
+
+                        if not result.get("success"):
+                            error_count += 1
+                            error_msg = result.get("error", "Unknown error")
+                            logger.error(
+                                f"LocalSocketListener: Failed to resolve identifier - "
+                                f"oid={oid}, error={error_msg}"
+                            )
+                            continue
+
                         # Add watched identifier
                         self.watcher.watch(oid)
+                        success_count += 1
                         alias = getattr(observed, "name", oid)
                         logger.info(
                             f"LocalSocketListener: Successfully added watched identifier - "
