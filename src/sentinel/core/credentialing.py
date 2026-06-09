@@ -82,7 +82,7 @@ class CredentialLoader:
             remote_sn: The remote sequence number (ending point, inclusive)
         """
 
-        for sn in range(local_sn, remote_sn+1):
+        for sn in range(local_sn, remote_sn + 1):
             pdig = self.hby.db.getKeLast(dbing.snKey(pre, sn))
             if not pdig:
                 continue

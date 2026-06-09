@@ -461,7 +461,9 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
             mock_client.get = AsyncMock(return_value=mock_oobi_response)
             mock_client_class.return_value = mock_client
 
-            with patch("sentinel.core.watching.filing.export_kel", new_callable=AsyncMock) as mock_export:
+            with patch(
+                "sentinel.core.watching.filing.export_kel", new_callable=AsyncMock
+            ) as mock_export:
                 mock_export.return_value = True
 
                 # After parse is called, add kever to mock_hby.kevers
@@ -470,7 +472,9 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
 
                 self.mock_hby.psr.parse.side_effect = add_kever_after_parse
 
-                with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+                with patch(
+                    "sentinel.core.watching.random.choice", return_value="EWitness123"
+                ):
                     with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
                         mock_schemes.https = "https"
                         mock_schemes.http = "http"
@@ -495,9 +499,7 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
 
                 # Verify export was called
                 mock_export.assert_called_once_with(
-                    hby=self.mock_hby,
-                    aid=self.watched_aid,
-                    export_dir="/tmp/test"
+                    hby=self.mock_hby, aid=self.watched_aid, export_dir="/tmp/test"
                 )
 
         # Verify result
@@ -529,7 +531,7 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
 
         # Verify error result
         self.assertFalse(result["success"])
-        self.assertIn("not found in KERI database or registrar", result["error"])
+        self.assertIn("not found at registrar", result["error"])
 
     async def test_add_watched_identifier_oobi_resolution_non_200(self):
         """Test OOBI resolution with non-200 status from registrar"""
@@ -557,7 +559,7 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
 
         # Verify error result
         self.assertFalse(result["success"])
-        self.assertIn("Failed to fetch OOBI from registrar", result["error"])
+        self.assertIn("Failed to fetch OOBI", result["error"])
         self.assertIn("500", result["error"])
 
     async def test_add_watched_identifier_oobi_resolution_http_error(self):
@@ -570,7 +572,10 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
             mock_client.__aenter__.return_value = mock_client
             # Use httpx.HTTPError for proper exception handling
             import httpx
-            mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Connection timeout"))
+
+            mock_client.get = AsyncMock(
+                side_effect=httpx.HTTPError("Connection timeout")
+            )
             mock_client_class.return_value = mock_client
 
             # Call function with registrar_url
@@ -703,7 +708,9 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
             mock_client.get = AsyncMock(return_value=mock_oobi_response)
             mock_client_class.return_value = mock_client
 
-            with patch("sentinel.core.watching.filing.export_kel", new_callable=AsyncMock) as mock_export:
+            with patch(
+                "sentinel.core.watching.filing.export_kel", new_callable=AsyncMock
+            ) as mock_export:
                 # Export fails
                 mock_export.side_effect = Exception("Export error")
 
@@ -713,7 +720,9 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
 
                 self.mock_hby.psr.parse.side_effect = add_kever_after_parse
 
-                with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+                with patch(
+                    "sentinel.core.watching.random.choice", return_value="EWitness123"
+                ):
                     with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
                         mock_schemes.https = "https"
                         mock_schemes.http = "http"

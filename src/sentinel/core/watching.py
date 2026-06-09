@@ -136,10 +136,17 @@ async def resolve_identifier_kel(
 
         # If no registrar_url, cannot resolve
         if not registrar_url:
-            logger.error(f"Identifier {aid} not in kevers and no registrar_url provided")
-            return {"success": False, "error": "Identifier not found and no registrar URL available"}
+            logger.error(
+                f"Identifier {aid} not in kevers and no registrar_url provided"
+            )
+            return {
+                "success": False,
+                "error": "Identifier not found and no registrar URL available",
+            }
 
-        logger.info(f"Identifier {aid} not in kevers, attempting OOBI resolution from registrar")
+        logger.info(
+            f"Identifier {aid} not in kevers, attempting OOBI resolution from registrar"
+        )
 
         # Fetch OOBI from registrar
         oobi_url = f"{registrar_url.rstrip('/')}/oobi/{aid}"
@@ -151,30 +158,46 @@ async def resolve_identifier_kel(
 
                 if response.status_code == 404:
                     logger.error(f"OOBI not found for {aid} at registrar")
-                    return {"success": False, "error": f"Identifier {aid} not found at registrar"}
+                    return {
+                        "success": False,
+                        "error": f"Identifier {aid} not found at registrar",
+                    }
 
                 if response.status_code != 200:
-                    logger.error(f"Failed to fetch OOBI for {aid}: status {response.status_code}")
-                    return {"success": False, "error": f"Failed to fetch OOBI (status {response.status_code})"}
+                    logger.error(
+                        f"Failed to fetch OOBI for {aid}: status {response.status_code}"
+                    )
+                    return {
+                        "success": False,
+                        "error": f"Failed to fetch OOBI (status {response.status_code})",
+                    }
 
                 oobi_data = response.content
-                logger.debug(f"Successfully fetched OOBI for {aid} ({len(oobi_data)} bytes)")
+                logger.debug(
+                    f"Successfully fetched OOBI for {aid} ({len(oobi_data)} bytes)"
+                )
 
             except httpx.HTTPError as e:
                 logger.error(f"HTTP error fetching OOBI for {aid}: {e}")
-                return {"success": False, "error": "Network error fetching OOBI from registrar"}
+                return {
+                    "success": False,
+                    "error": "Network error fetching OOBI from registrar",
+                }
 
         # Parse OOBI to load KEL
         logger.debug(f"Parsing OOBI data for {aid}")
         hby.psr.parse(oobi_data)
         hby.kvy.processEscrows()
-        if hasattr(hby, 'rvy') and hby.rvy:
+        if hasattr(hby, "rvy") and hby.rvy:
             hby.rvy.processEscrowReply()
 
         # Verify KEL loaded successfully
         if aid not in hby.kevers:
             logger.error(f"Failed to load KEL for {aid} after OOBI resolution")
-            return {"success": False, "error": f"Identifier {aid} could not be resolved"}
+            return {
+                "success": False,
+                "error": f"Identifier {aid} could not be resolved",
+            }
 
         logger.info(f"Successfully resolved OOBI for {aid}")
 
@@ -182,9 +205,7 @@ async def resolve_identifier_kel(
         if export_dir:
             try:
                 success = await filing.export_kel(
-                    hby=hby,
-                    aid=aid,
-                    export_dir=export_dir
+                    hby=hby, aid=aid, export_dir=export_dir
                 )
                 if success:
                     logger.info(f"Successfully exported KEL for {aid}")
@@ -215,7 +236,9 @@ async def add_watched_identifier(
         MAX_RETRY_COUNT = 1
         if _retry_count > MAX_RETRY_COUNT:
             logger.error(f"Maximum retry count exceeded for {watched_aid}")
-            raise ValueError(f"Failed to add watched identifier {watched_aid} after retry")
+            raise ValueError(
+                f"Failed to add watched identifier {watched_aid} after retry"
+            )
 
         # Verify watched identifier is in kevers
         if watched_aid not in hby.kevers:
@@ -229,7 +252,9 @@ async def add_watched_identifier(
                 )
 
                 if not result.get("success"):
-                    raise ValueError(result.get("error", "Failed to resolve identifier"))
+                    raise ValueError(
+                        result.get("error", "Failed to resolve identifier")
+                    )
 
                 # Retry with incremented counter
                 return await add_watched_identifier(
@@ -239,7 +264,7 @@ async def add_watched_identifier(
                     alias=alias,
                     registrar_url=registrar_url,
                     export_dir=export_dir,
-                    _retry_count=_retry_count + 1
+                    _retry_count=_retry_count + 1,
                 )
             else:
                 # No registrar_url or already retried
