@@ -417,6 +417,320 @@ class TestAddWatchedIdentifier(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["success"])
         self.assertEqual(result["error"], "Invalid data")
 
+    async def test_add_watched_identifier_oobi_resolution_success(self):
+        """Test successful OOBI resolution when AID not in kevers"""
+        # Setup mocks - watched_aid NOT in kevers initially
+        self.mock_hby.kevers = {}
+
+        # Setup kever that will be added after OOBI resolution
+        mock_kever = Mock()
+        mock_kever.wits = ["EWitness123"]
+        mock_serder = Mock()
+        mock_serder.pre = self.watched_aid
+        mock_kever.serder = mock_serder
+
+        # Setup witness location
+        mock_loc = Mock()
+        mock_loc.url = "https://witness.example.com"
+        self.mock_hby.db.locs.getItemIter = Mock(
+            return_value=[(("EWitness123", "https"), mock_loc)]
+        )
+
+        # Setup psr and kvy for parsing
+        self.mock_hby.psr = Mock()
+        self.mock_hby.psr.parse = Mock()
+        self.mock_hby.kvy = Mock()
+        self.mock_hby.kvy.processEscrows = Mock()
+        self.mock_hby.rvy = Mock()
+        self.mock_hby.rvy.processEscrowReply = Mock()
+
+        # Mock the OOBI HTTP response
+        mock_oobi_response = Mock()
+        mock_oobi_response.status_code = 200
+        mock_oobi_response.content = b"mock_oobi_data"
+
+        # Mock the final API response
+        mock_api_response = Mock()
+        mock_api_response.status_code = 201
+        mock_api_response.text = "Created"
+        self.mock_essr.request = AsyncMock(return_value=mock_api_response)
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_oobi_response)
+            mock_client_class.return_value = mock_client
+
+            with patch("sentinel.core.watching.filing.export_kel", new_callable=AsyncMock) as mock_export:
+                mock_export.return_value = True
+
+                # After parse is called, add kever to mock_hby.kevers
+                def add_kever_after_parse(data):
+                    self.mock_hby.kevers[self.watched_aid] = mock_kever
+
+                self.mock_hby.psr.parse.side_effect = add_kever_after_parse
+
+                with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+                    with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
+                        mock_schemes.https = "https"
+                        mock_schemes.http = "http"
+
+                        # Call function with registrar_url and export_dir
+                        result = await add_watched_identifier(
+                            hby=self.mock_hby,
+                            essr=self.mock_essr,
+                            watched_aid=self.watched_aid,
+                            alias=self.alias,
+                            registrar_url="https://registrar.example.com",
+                            export_dir="/tmp/test",
+                        )
+
+                # Verify OOBI fetch was called
+                mock_client.get.assert_called_once_with(
+                    f"https://registrar.example.com/oobi/{self.watched_aid}"
+                )
+
+                # Verify parse was called
+                self.mock_hby.psr.parse.assert_called_once_with(b"mock_oobi_data")
+
+                # Verify export was called
+                mock_export.assert_called_once_with(
+                    hby=self.mock_hby,
+                    aid=self.watched_aid,
+                    export_dir="/tmp/test"
+                )
+
+        # Verify result
+        self.assertTrue(result["success"])
+
+    async def test_add_watched_identifier_oobi_resolution_404(self):
+        """Test OOBI resolution with 404 from registrar"""
+        # Setup mocks - watched_aid NOT in kevers
+        self.mock_hby.kevers = {}
+
+        # Mock the OOBI HTTP response - 404
+        mock_oobi_response = Mock()
+        mock_oobi_response.status_code = 404
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_oobi_response)
+            mock_client_class.return_value = mock_client
+
+            # Call function with registrar_url
+            result = await add_watched_identifier(
+                hby=self.mock_hby,
+                essr=self.mock_essr,
+                watched_aid=self.watched_aid,
+                alias=self.alias,
+                registrar_url="https://registrar.example.com",
+            )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("not found in KERI database or registrar", result["error"])
+
+    async def test_add_watched_identifier_oobi_resolution_non_200(self):
+        """Test OOBI resolution with non-200 status from registrar"""
+        # Setup mocks - watched_aid NOT in kevers
+        self.mock_hby.kevers = {}
+
+        # Mock the OOBI HTTP response - 500
+        mock_oobi_response = Mock()
+        mock_oobi_response.status_code = 500
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_oobi_response)
+            mock_client_class.return_value = mock_client
+
+            # Call function with registrar_url
+            result = await add_watched_identifier(
+                hby=self.mock_hby,
+                essr=self.mock_essr,
+                watched_aid=self.watched_aid,
+                alias=self.alias,
+                registrar_url="https://registrar.example.com",
+            )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("Failed to fetch OOBI from registrar", result["error"])
+        self.assertIn("500", result["error"])
+
+    async def test_add_watched_identifier_oobi_resolution_http_error(self):
+        """Test OOBI resolution with HTTP error"""
+        # Setup mocks - watched_aid NOT in kevers
+        self.mock_hby.kevers = {}
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            # Use httpx.HTTPError for proper exception handling
+            import httpx
+            mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Connection timeout"))
+            mock_client_class.return_value = mock_client
+
+            # Call function with registrar_url
+            result = await add_watched_identifier(
+                hby=self.mock_hby,
+                essr=self.mock_essr,
+                watched_aid=self.watched_aid,
+                alias=self.alias,
+                registrar_url="https://registrar.example.com",
+            )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("Network error fetching OOBI from registrar", result["error"])
+
+    async def test_add_watched_identifier_no_registrar_url(self):
+        """Test fallback when no registrar_url provided"""
+        # Setup mocks - watched_aid NOT in kevers
+        self.mock_hby.kevers = {}
+
+        # Call function without registrar_url
+        result = await add_watched_identifier(
+            hby=self.mock_hby,
+            essr=self.mock_essr,
+            watched_aid=self.watched_aid,
+            alias=self.alias,
+        )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("not found in KERI database", result["error"])
+
+    async def test_add_watched_identifier_oobi_resolution_kel_not_loaded(self):
+        """Test KEL not loaded after OOBI resolution"""
+        # Setup mocks - watched_aid NOT in kevers initially
+        self.mock_hby.kevers = {}
+
+        # Setup psr and kvy for parsing
+        self.mock_hby.psr = Mock()
+        self.mock_hby.psr.parse = Mock()
+        self.mock_hby.kvy = Mock()
+        self.mock_hby.kvy.processEscrows = Mock()
+        self.mock_hby.rvy = Mock()
+        self.mock_hby.rvy.processEscrowReply = Mock()
+
+        # Mock the OOBI HTTP response
+        mock_oobi_response = Mock()
+        mock_oobi_response.status_code = 200
+        mock_oobi_response.content = b"mock_oobi_data"
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_oobi_response)
+            mock_client_class.return_value = mock_client
+
+            # Call function with registrar_url - kever NOT added after parse
+            result = await add_watched_identifier(
+                hby=self.mock_hby,
+                essr=self.mock_essr,
+                watched_aid=self.watched_aid,
+                alias=self.alias,
+                registrar_url="https://registrar.example.com",
+            )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("could not be resolved", result["error"])
+
+    async def test_add_watched_identifier_max_retry(self):
+        """Test retry limit prevention"""
+        # Setup mocks - watched_aid NOT in kevers
+        self.mock_hby.kevers = {}
+
+        # Call function with _retry_count > MAX_RETRY_COUNT
+        result = await add_watched_identifier(
+            hby=self.mock_hby,
+            essr=self.mock_essr,
+            watched_aid=self.watched_aid,
+            alias=self.alias,
+            registrar_url="https://registrar.example.com",
+            _retry_count=2,  # Greater than MAX_RETRY_COUNT (1)
+        )
+
+        # Verify error result
+        self.assertFalse(result["success"])
+        self.assertIn("after retry", result["error"])
+
+    async def test_add_watched_identifier_oobi_resolution_export_failure(self):
+        """Test export failure handling during OOBI resolution"""
+        # Setup mocks - watched_aid NOT in kevers initially
+        self.mock_hby.kevers = {}
+
+        # Setup kever that will be added after OOBI resolution
+        mock_kever = Mock()
+        mock_kever.wits = ["EWitness123"]
+        mock_serder = Mock()
+        mock_serder.pre = self.watched_aid
+        mock_kever.serder = mock_serder
+
+        # Setup witness location
+        mock_loc = Mock()
+        mock_loc.url = "https://witness.example.com"
+        self.mock_hby.db.locs.getItemIter = Mock(
+            return_value=[(("EWitness123", "https"), mock_loc)]
+        )
+
+        # Setup psr and kvy for parsing
+        self.mock_hby.psr = Mock()
+        self.mock_hby.psr.parse = Mock()
+        self.mock_hby.kvy = Mock()
+        self.mock_hby.kvy.processEscrows = Mock()
+        self.mock_hby.rvy = Mock()
+        self.mock_hby.rvy.processEscrowReply = Mock()
+
+        # Mock the OOBI HTTP response
+        mock_oobi_response = Mock()
+        mock_oobi_response.status_code = 200
+        mock_oobi_response.content = b"mock_oobi_data"
+
+        # Mock the final API response
+        mock_api_response = Mock()
+        mock_api_response.status_code = 201
+        mock_api_response.text = "Created"
+        self.mock_essr.request = AsyncMock(return_value=mock_api_response)
+
+        with patch("sentinel.core.watching.httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_oobi_response)
+            mock_client_class.return_value = mock_client
+
+            with patch("sentinel.core.watching.filing.export_kel", new_callable=AsyncMock) as mock_export:
+                # Export fails
+                mock_export.side_effect = Exception("Export error")
+
+                # After parse is called, add kever to mock_hby.kevers
+                def add_kever_after_parse(data):
+                    self.mock_hby.kevers[self.watched_aid] = mock_kever
+
+                self.mock_hby.psr.parse.side_effect = add_kever_after_parse
+
+                with patch("sentinel.core.watching.random.choice", return_value="EWitness123"):
+                    with patch("sentinel.core.watching.kering.Schemes") as mock_schemes:
+                        mock_schemes.https = "https"
+                        mock_schemes.http = "http"
+
+                        # Call function with registrar_url and export_dir
+                        result = await add_watched_identifier(
+                            hby=self.mock_hby,
+                            essr=self.mock_essr,
+                            watched_aid=self.watched_aid,
+                            alias=self.alias,
+                            registrar_url="https://registrar.example.com",
+                            export_dir="/tmp/test",
+                        )
+
+        # Verify result - should still succeed despite export failure
+        self.assertTrue(result["success"])
+
 
 class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
     """Test cases for WatchedAdjudicationPoller class"""
@@ -872,6 +1186,8 @@ class TestObvsSocketListener(unittest.IsolatedAsyncioTestCase):
                     essr=self.mock_essr,
                     watched_aid="oid1",
                     alias="TestObvs",
+                    registrar_url=None,
+                    export_dir=None,
                 )
 
     async def test_check_and_add_obvs_skip_old_entries(self):

@@ -82,7 +82,7 @@ class CredentialLoader:
             remote_sn: The remote sequence number (ending point, inclusive)
         """
 
-        for sn in range(local_sn, remote_sn):
+        for sn in range(local_sn, remote_sn+1):
             pdig = self.hby.db.getKeLast(dbing.snKey(pre, sn))
             if not pdig:
                 continue
@@ -118,7 +118,7 @@ class CredentialLoader:
         import httpx
 
         base_delay = 1.0  # Start with 1 second
-        max_attempts = 5
+        max_attempts = 6
 
         url = (
             f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true"

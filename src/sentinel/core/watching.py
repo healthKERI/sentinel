@@ -6,6 +6,7 @@ Functions and services for managing healthKERI account watchers
 """
 
 import asyncio
+import httpx
 import os
 import random
 import urllib.parse
@@ -109,13 +110,142 @@ async def delete_account_watcher(essr, eid: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dict:
+async def resolve_identifier_kel(
+    hby,
+    aid: str,
+    registrar_url: Optional[str] = None,
+    export_dir: Optional[str] = None,
+) -> dict:
+    """
+    Resolve and load KEL for an identifier from registrar if not already in kevers.
+
+    Args:
+        hby: Habery instance
+        aid: Identifier to resolve
+        registrar_url: URL of registrar to fetch OOBI from
+        export_dir: Directory to export KEL to after loading
+
+    Returns:
+        Dict with 'success' and optional 'error'
+    """
     try:
+        # Check if identifier already in kevers
+        if aid in hby.kevers:
+            logger.debug(f"Identifier {aid} already in kevers, no resolution needed")
+            return {"success": True}
+
+        # If no registrar_url, cannot resolve
+        if not registrar_url:
+            logger.error(f"Identifier {aid} not in kevers and no registrar_url provided")
+            return {"success": False, "error": "Identifier not found and no registrar URL available"}
+
+        logger.info(f"Identifier {aid} not in kevers, attempting OOBI resolution from registrar")
+
+        # Fetch OOBI from registrar
+        oobi_url = f"{registrar_url.rstrip('/')}/oobi/{aid}"
+        logger.info(f"Fetching OOBI from {oobi_url}")
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.get(oobi_url)
+
+                if response.status_code == 404:
+                    logger.error(f"OOBI not found for {aid} at registrar")
+                    return {"success": False, "error": f"Identifier {aid} not found at registrar"}
+
+                if response.status_code != 200:
+                    logger.error(f"Failed to fetch OOBI for {aid}: status {response.status_code}")
+                    return {"success": False, "error": f"Failed to fetch OOBI (status {response.status_code})"}
+
+                oobi_data = response.content
+                logger.debug(f"Successfully fetched OOBI for {aid} ({len(oobi_data)} bytes)")
+
+            except httpx.HTTPError as e:
+                logger.error(f"HTTP error fetching OOBI for {aid}: {e}")
+                return {"success": False, "error": "Network error fetching OOBI from registrar"}
+
+        # Parse OOBI to load KEL
+        logger.debug(f"Parsing OOBI data for {aid}")
+        hby.psr.parse(oobi_data)
+        hby.kvy.processEscrows()
+        if hasattr(hby, 'rvy') and hby.rvy:
+            hby.rvy.processEscrowReply()
+
+        # Verify KEL loaded successfully
+        if aid not in hby.kevers:
+            logger.error(f"Failed to load KEL for {aid} after OOBI resolution")
+            return {"success": False, "error": f"Identifier {aid} could not be resolved"}
+
+        logger.info(f"Successfully resolved OOBI for {aid}")
+
+        # Export KEL to filesystem if export_dir provided
+        if export_dir:
+            try:
+                success = await filing.export_kel(
+                    hby=hby,
+                    aid=aid,
+                    export_dir=export_dir
+                )
+                if success:
+                    logger.info(f"Successfully exported KEL for {aid}")
+                else:
+                    logger.warning(f"Failed to export KEL for {aid}")
+            except Exception as e:
+                logger.error(f"Error exporting KEL for {aid}: {e}")
+                # Continue - export failure shouldn't block resolution
+
+        return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Error resolving identifier KEL for {aid}: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def add_watched_identifier(
+    hby,
+    essr,
+    watched_aid: str,
+    alias: str,
+    registrar_url: Optional[str] = None,
+    export_dir: Optional[str] = None,
+    _retry_count: int = 0,
+) -> dict:
+    try:
+        # Guard against infinite recursion
+        MAX_RETRY_COUNT = 1
+        if _retry_count > MAX_RETRY_COUNT:
+            logger.error(f"Maximum retry count exceeded for {watched_aid}")
+            raise ValueError(f"Failed to add watched identifier {watched_aid} after retry")
+
         # Verify watched identifier is in kevers
         if watched_aid not in hby.kevers:
-            raise ValueError(
-                f"Watched identifier {watched_aid} not found in KERI database"
-            )
+            # Attempt OOBI resolution if this is first try and registrar_url provided
+            if _retry_count == 0 and registrar_url:
+                result = await resolve_identifier_kel(
+                    hby=hby,
+                    aid=watched_aid,
+                    registrar_url=registrar_url,
+                    export_dir=export_dir,
+                )
+
+                if not result.get("success"):
+                    raise ValueError(result.get("error", "Failed to resolve identifier"))
+
+                # Retry with incremented counter
+                return await add_watched_identifier(
+                    hby=hby,
+                    essr=essr,
+                    watched_aid=watched_aid,
+                    alias=alias,
+                    registrar_url=registrar_url,
+                    export_dir=export_dir,
+                    _retry_count=_retry_count + 1
+                )
+            else:
+                # No registrar_url or already retried
+                raise ValueError(
+                    f"Watched identifier {watched_aid} not found in KERI database"
+                )
 
         kever = hby.kevers[watched_aid]
 
@@ -146,8 +276,6 @@ async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dic
         # APIClient.request is the async method
         response = await essr.request(path="/watched", method="POST", json=doc)
 
-        print(response.status_code)
-        print(response.text)
         if response and response.status_code in (204, 200, 201):
             return {"success": True}
         else:
@@ -161,7 +289,7 @@ async def add_watched_identifier(hby, essr, watched_aid: str, alias: str) -> dic
             return {"success": False, "error": error_msg}
 
     except Exception as e:
-        logger.error(f"Error deleting account watcher: {e}")
+        logger.error(f"Error adding watched identifier: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -442,6 +570,8 @@ class ObvsSocketListener:
         db,
         socket_path: str,
         poll_interval: float = 0.5,
+        registrar_url: Optional[str] = None,
+        export_dir: Optional[str] = None,
     ):
         """
         Initialize the ObvsSocketListener.
@@ -452,6 +582,8 @@ class ObvsSocketListener:
             db: Database instance with watched_poll table
             socket_path: Path to Unix Domain Socket (e.g., /tmp/sentinel_name.sock)
             poll_interval: Timer interval for checking connections (default: 0.5 seconds)
+            registrar_url: URL for credential registrar API (default: None)
+            export_dir: Directory for exporting CESR files (default: None)
         """
         self.hby = hby
         self.psr = parsing.Parser(kvy=self.hby.kvy, rvy=self.hby.rvy, local=True)
@@ -459,6 +591,8 @@ class ObvsSocketListener:
         self.db = db
         self.socket_path = socket_path
         self.poll_interval = poll_interval
+        self.registrar_url = registrar_url
+        self.export_dir = export_dir
         self._server = None
         self._task = None
         self._running = False
@@ -665,6 +799,8 @@ class ObvsSocketListener:
                             essr=self.essr,
                             watched_aid=oid,
                             alias=alias,  # type: ignore
+                            registrar_url=self.registrar_url,
+                            export_dir=self.export_dir,
                         )
 
                         if result.get("success"):
