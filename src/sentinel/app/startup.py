@@ -129,6 +129,7 @@ async def _process_local_mode(
         try:
             logger.info(f"Startup: Processing {oid}...")
 
+            current_sn = 0 if oid not in hby.kevers else hby.kevers[oid].sn
             # Adjudicate key state
             if not await adjudicate_local(
                 hby=hby,
@@ -151,6 +152,7 @@ async def _process_local_mode(
                     hab=hab,
                     rgy=rgy,
                     oid=oid,
+                    pre_sn=current_sn,
                     export_dir=export_dir,
                     registrar_url=registrar_url,
                 )
@@ -254,6 +256,7 @@ async def _process_single_hk_identifier(
                 hab=hab,
                 rgy=rgy,
                 oid=oid,
+                pre_sn=0,
                 export_dir=export_dir,
                 registrar_url=registrar_url,
             )
@@ -377,6 +380,7 @@ async def scan_kel_for_credentials(
     hab: Hab,
     rgy: Regery,
     oid: str,
+    pre_sn: int,
     export_dir: str,
     registrar_url: str,
 ) -> int:
@@ -388,6 +392,7 @@ async def scan_kel_for_credentials(
         hab: Hab instance for the sentinel
         rgy: Registry instance
         oid: Object identifier being watched
+        pre_sn: Previous sequence number of the local key state
         export_dir: Directory for exporting CESR files
         registrar_url: URL for Registrar
 
@@ -402,14 +407,13 @@ async def scan_kel_for_credentials(
 
         # Get current sequence number
         current_sn = hby.kevers[oid].sn
-        logger.info(f"Startup: {oid} at sequence number {current_sn}")
 
         # Skip if no events to scan
         if current_sn < 0:
-            logger.debug(f"Startup: {oid} has no events to scan")
+            logger.info(f"Startup: {oid} has no events to scan")
             return 0
 
-        logger.info(f"Startup: Scanning KEL for {oid} (sn=0 to sn={current_sn})")
+        logger.info(f"Startup: Scanning KEL for {oid} (sn={pre_sn} to sn={current_sn})")
 
         # Create CredentialLoader and scan KEL
         credential_loader = CredentialLoader(
@@ -423,7 +427,7 @@ async def scan_kel_for_credentials(
         # Scan from sn=0 to current_sn (search_for_credentials uses local_sn + 1, so pass -1 to start from 0)
         await credential_loader.search_for_credentials(
             pre=oid,
-            local_sn=0,  # Will scan from sn=0 (local_sn + 1)
+            local_sn=pre_sn,  # Will scan from sn=0 (local_sn + 1)
             remote_sn=current_sn,
         )
 
