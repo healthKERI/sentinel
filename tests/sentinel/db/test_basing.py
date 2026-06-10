@@ -122,10 +122,11 @@ class TestSentinelBaser(unittest.TestCase):
             mdbEnvFlags=0x20000,
         )
 
+    @patch("sentinel.db.basing.koming.Komer")
     @patch("sentinel.db.basing.subing.CesrSuber")
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
-    def test_reopen(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class):
+    def test_reopen(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class):
         """Test reopen method"""
         mock_super_init.return_value = None
         mock_env = Mock()
@@ -133,6 +134,8 @@ class TestSentinelBaser(unittest.TestCase):
 
         mock_suber = Mock()
         mock_cesr_suber_class.return_value = mock_suber
+        mock_komer = Mock()
+        mock_komer_class.return_value = mock_komer
 
         # Create baser
         baser = SentinelBaser()
@@ -147,16 +150,18 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify parent reopen was called
         mock_super_reopen.assert_called_once_with()
 
-        # Verify CesrSuber was created with correct parameters
-        mock_cesr_suber_class.assert_called_once()
-        call_kwargs = mock_cesr_suber_class.call_args[1]
-        self.assertEqual(call_kwargs["db"], baser)
-        self.assertEqual(call_kwargs["subkey"], "watched.")
+        # Verify CesrSuber was called twice (for watched_poll and watched_scan_index)
+        self.assertEqual(mock_cesr_suber_class.call_count, 2)
+
+        # Verify first CesrSuber call was for watched_poll
+        first_call_kwargs = mock_cesr_suber_class.call_args_list[0][1]
+        self.assertEqual(first_call_kwargs["db"], baser)
+        self.assertEqual(first_call_kwargs["subkey"], "watched.")
 
         # Verify klas parameter is core.Dater
         from keri.core import coring
 
-        self.assertEqual(call_kwargs["klas"], coring.Dater)
+        self.assertEqual(first_call_kwargs["klas"], coring.Dater)
 
         # Verify watched_poll was set
         self.assertEqual(baser.watched_poll, mock_suber)
@@ -194,11 +199,12 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify return value is env
         self.assertEqual(result, mock_env)
 
+    @patch("sentinel.db.basing.koming.Komer")
     @patch("sentinel.db.basing.subing.CesrSuber")
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_reopen_replaces_existing_watched_poll(
-        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class
+        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class
     ):
         """Test that reopen replaces existing watched_poll"""
         mock_super_init.return_value = None
@@ -207,7 +213,12 @@ class TestSentinelBaser(unittest.TestCase):
 
         mock_suber1 = Mock()
         mock_suber2 = Mock()
-        mock_cesr_suber_class.side_effect = [mock_suber1, mock_suber2]
+        mock_suber3 = Mock()
+        mock_suber4 = Mock()
+        # Each reopen creates 2 CesrSuber instances (watched_poll and watched_scan_index)
+        mock_cesr_suber_class.side_effect = [mock_suber1, mock_suber2, mock_suber3, mock_suber4]
+        mock_komer = Mock()
+        mock_komer_class.return_value = mock_komer
 
         # Create baser
         baser = SentinelBaser()
@@ -219,10 +230,10 @@ class TestSentinelBaser(unittest.TestCase):
 
         # Second reopen
         baser.reopen()
-        self.assertEqual(baser.watched_poll, mock_suber2)
+        self.assertEqual(baser.watched_poll, mock_suber3)
 
-        # Verify CesrSuber was called twice
-        self.assertEqual(mock_cesr_suber_class.call_count, 2)
+        # Verify CesrSuber was called 4 times (2 per reopen)
+        self.assertEqual(mock_cesr_suber_class.call_count, 4)
 
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_inheritance(self, mock_super_init):
@@ -235,11 +246,12 @@ class TestSentinelBaser(unittest.TestCase):
         # Verify inheritance
         self.assertIsInstance(baser, dbing.LMDBer)
 
+    @patch("sentinel.db.basing.koming.Komer")
     @patch("sentinel.db.basing.subing.CesrSuber")
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_watched_poll_suber_configuration(
-        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class
+        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class
     ):
         """Test watched_poll suber is configured with correct subkey"""
         mock_super_init.return_value = None
@@ -248,14 +260,16 @@ class TestSentinelBaser(unittest.TestCase):
 
         mock_suber = Mock()
         mock_cesr_suber_class.return_value = mock_suber
+        mock_komer = Mock()
+        mock_komer_class.return_value = mock_komer
 
         # Create baser
         baser = SentinelBaser()
         baser.env = mock_env  # Add env attribute
         baser.reopen()
 
-        # Verify subkey is 'watched.' (with dot suffix)
-        call_kwargs = mock_cesr_suber_class.call_args[1]
+        # Verify subkey is 'watched.' (with dot suffix) - check first call
+        call_kwargs = mock_cesr_suber_class.call_args_list[0][1]
         self.assertEqual(call_kwargs["subkey"], "watched.")
         self.assertTrue(call_kwargs["subkey"].endswith("."))
 

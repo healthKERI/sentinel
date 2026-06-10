@@ -162,6 +162,15 @@ class CredentialLoader:
 
                         return
                     else:
+                        reg_url = f"{self.registrar_url}/registry/{credential_said}"
+                        response = await client.get(reg_url)
+
+                        if response.status_code == 200:
+                            logger.info(
+                                f"_load_credential: Anchor said {credential_said} is a registry"
+                            )
+                            return
+
                         logger.warning(
                             f"_load_credential: Attempt {attempt} failed with status {response.status_code}"
                         )
