@@ -8,7 +8,7 @@ Startup initialization logic for adjudicating watched identifiers and scanning f
 import asyncio
 
 from kept.hk.essring import APIClient
-from keri import help
+from keri import help, core
 from keri.app.habbing import Habery, Hab
 from keri.vdr.credentialing import Regery
 
@@ -129,7 +129,9 @@ async def _process_local_mode(
         try:
             logger.info(f"Startup: Processing {oid}...")
 
-            current_sn = 0 if oid not in hby.kevers else hby.kevers[oid].sn
+            cur_number = db.watched_scan_index.get(keys=(oid,))
+            current_sn = 0 if cur_number is None else cur_number.num
+
             # Adjudicate key state
             if not await adjudicate_local(
                 hby=hby,
@@ -155,6 +157,10 @@ async def _process_local_mode(
                     pre_sn=current_sn,
                     export_dir=export_dir,
                     registrar_url=registrar_url,
+                )
+
+                db.watched_scan_index.pin(
+                    keys=(oid,), value=core.Number(num=credential_count)
                 )
                 logger.info(
                     f"Startup: Completed initialization for {oid} ({credential_count} credentials processed)"

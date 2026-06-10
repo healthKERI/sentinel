@@ -65,6 +65,7 @@ class SentinelBaser(dbing.LMDBer):
     def __init__(self, name="sentinel", headDirPath=None, reopen=True, **kwa):
         self.watched_poll = None
         self.witq = None
+        self.watched_scan_index = None
 
         super(SentinelBaser, self).__init__(
             name=name, headDirPath=headDirPath, reopen=reopen, **kwa
@@ -80,5 +81,10 @@ class SentinelBaser(dbing.LMDBer):
 
         # Most recent witness query records
         self.witq = koming.Komer(db=self, subkey="witq.", schema=WitnessQuery)
+
+        # Most recent watched events
+        self.watched_scan_index = subing.CesrSuber(
+            db=self, subkey="watsi.", klas=core.Number
+        )
 
         return self.env
