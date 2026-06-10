@@ -126,7 +126,13 @@ class TestSentinelBaser(unittest.TestCase):
     @patch("sentinel.db.basing.subing.CesrSuber")
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
-    def test_reopen(self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class):
+    def test_reopen(
+        self,
+        mock_super_init,
+        mock_super_reopen,
+        mock_cesr_suber_class,
+        mock_komer_class,
+    ):
         """Test reopen method"""
         mock_super_init.return_value = None
         mock_env = Mock()
@@ -204,7 +210,11 @@ class TestSentinelBaser(unittest.TestCase):
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_reopen_replaces_existing_watched_poll(
-        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class
+        self,
+        mock_super_init,
+        mock_super_reopen,
+        mock_cesr_suber_class,
+        mock_komer_class,
     ):
         """Test that reopen replaces existing watched_poll"""
         mock_super_init.return_value = None
@@ -216,7 +226,12 @@ class TestSentinelBaser(unittest.TestCase):
         mock_suber3 = Mock()
         mock_suber4 = Mock()
         # Each reopen creates 2 CesrSuber instances (watched_poll and watched_scan_index)
-        mock_cesr_suber_class.side_effect = [mock_suber1, mock_suber2, mock_suber3, mock_suber4]
+        mock_cesr_suber_class.side_effect = [
+            mock_suber1,
+            mock_suber2,
+            mock_suber3,
+            mock_suber4,
+        ]
         mock_komer = Mock()
         mock_komer_class.return_value = mock_komer
 
@@ -251,7 +266,11 @@ class TestSentinelBaser(unittest.TestCase):
     @patch("sentinel.db.basing.dbing.LMDBer.reopen")
     @patch("sentinel.db.basing.dbing.LMDBer.__init__")
     def test_watched_poll_suber_configuration(
-        self, mock_super_init, mock_super_reopen, mock_cesr_suber_class, mock_komer_class
+        self,
+        mock_super_init,
+        mock_super_reopen,
+        mock_cesr_suber_class,
+        mock_komer_class,
     ):
         """Test watched_poll suber is configured with correct subkey"""
         mock_super_init.return_value = None
