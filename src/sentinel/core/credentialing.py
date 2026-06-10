@@ -162,12 +162,12 @@ class CredentialLoader:
 
                         return
                     else:
-                        reg_url = f"{self.registrar_url}/registry/{credential_said}"
+                        reg_url = f"{self.registrar_url}/tel/{credential_said}"
                         response = await client.get(reg_url)
 
                         if response.status_code == 200:
                             logger.info(
-                                f"_load_credential: Anchor said {credential_said} is a registry"
+                                f"_load_credential: Anchor said {credential_said} is a TEL event"
                             )
                             return
 

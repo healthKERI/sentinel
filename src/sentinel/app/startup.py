@@ -149,7 +149,7 @@ async def _process_local_mode(
 
             # Scan KEL for credentials (only if registrar_url is configured)
             if registrar_url:
-                credential_count = await scan_kel_for_credentials(
+                scanned_events = await scan_kel_for_credentials(
                     hby=hby,
                     hab=hab,
                     rgy=rgy,
@@ -160,10 +160,10 @@ async def _process_local_mode(
                 )
 
                 db.watched_scan_index.pin(
-                    keys=(oid,), value=core.Number(num=credential_count)
+                    keys=(oid,), val=core.Number(num=scanned_events - 1)
                 )
                 logger.info(
-                    f"Startup: Completed initialization for {oid} ({credential_count} credentials processed)"
+                    f"Startup: Completed initialization for {oid} ({scanned_events} credentials processed)"
                 )
             else:
                 logger.info(
