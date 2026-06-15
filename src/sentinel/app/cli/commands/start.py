@@ -14,18 +14,19 @@ import signal
 from keri import __version__
 from keri import help
 from sentinel.app import sentineling
+from sentinel.core.initializing import SentinelConfig
 
 d = "Runs healthKERI Sentinel"
 parser = argparse.ArgumentParser(description=d)
 parser.set_defaults(handler=lambda args: launch(args))
 parser.add_argument(
-    "--name", "-n", help="Name of the database environment", required=True
+    "--name", "-n", help="Name of the database environment", required=False
 )
 parser.add_argument(
     "--alias",
     "-a",
     help="human readable alias for the new identifier prefix",
-    required=True,
+    required=False,
 )
 parser.add_argument(
     "--passcode",
@@ -84,6 +85,14 @@ parser.add_argument(
     help="URL for Registrar if available.",
 )
 parser.add_argument(
+    "--config",
+    "-c",
+    action="store",
+    required=False,
+    default=None,
+    help="Path to YAML configuration file. CLI arguments override config file values.",
+)
+parser.add_argument(
     "-V",
     "--version",
     action="version",
@@ -94,7 +103,76 @@ parser.add_argument(
 FORMAT = "%(asctime)s [sentinel] %(levelname)-8s %(message)s"
 
 
+def merge_config_and_args(args):
+    """
+    Merge configuration file values with CLI arguments.
+    CLI arguments take precedence over config file values.
+
+    Args:
+        args: Parsed command line arguments from argparse
+
+    Returns:
+        args: Updated args namespace with merged values
+
+    Raises:
+        ValueError: If config file not found or required parameters missing
+    """
+    # If no config file specified, validate required args and return
+    if args.config is None:
+        if not args.name:
+            raise ValueError("--name is required")
+        if not args.alias:
+            raise ValueError("--alias is required")
+        return args
+
+    # Load config file
+    try:
+        config = SentinelConfig.load(args.config)
+    except FileNotFoundError:
+        raise ValueError(f"Configuration file not found: {args.config}")
+    except Exception as e:
+        raise ValueError(f"Error loading configuration file: {e}")
+
+    # Merge config values with CLI args (CLI takes precedence)
+
+    # Required parameters - use config if CLI not provided
+    if not args.name:
+        args.name = config.name
+    if not args.alias:
+        args.alias = config.alias
+
+    # Optional parameters without defaults - use config if CLI is None
+    if args.bran is None and config.bran:
+        args.bran = config.bran
+    if args.registrar_url is None and config.registrar.url:
+        args.registrar_url = config.registrar.url
+
+    # Parameters with defaults - use config if CLI equals default
+    if args.base == "" and config.base:
+        args.base = config.base
+    if args.export_dir == "/usr/local/sentinel" and config.export_dir:
+        args.export_dir = config.export_dir
+
+    # Boolean flags - use config if CLI is False (not set)
+    if not args.local and config.local:
+        args.local = config.local
+    if not args.uxd and config.uxd:
+        args.uxd = config.uxd
+
+    # Validate required parameters are present after merge
+    if not args.name:
+        raise ValueError("--name is required (provide via CLI or config file)")
+    if not args.alias:
+        raise ValueError("--alias is required (provide via CLI or config file)")
+
+    return args
+
+
 def launch(args):
+    # Merge config file with CLI args (CLI args take precedence)
+    args = merge_config_and_args(args)
+    print(args.registrar_url)
+
     help.ogler.level = logging.getLevelName(args.loglevel)
     base_formatter = logging.Formatter(FORMAT)  # basic format
     base_formatter.default_msec_format = None

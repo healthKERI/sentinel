@@ -1,9 +1,9 @@
 # -*- encoding: utf-8 -*-
 """
 KERI
-mdc2.app.cli.commands module
+senitnel.app.cli.commands module
 
-Initialize the MDC2 server using the provided auth_key
+Initialize the Sentinel server using the provided auth_key
 """
 
 import argparse
@@ -20,7 +20,7 @@ from kept.hk.configing import HealthKERIConfig
 
 logger = help.ogler.getLogger()
 
-parser = argparse.ArgumentParser(description="Initialize a new healthKERI machine.")
+parser = argparse.ArgumentParser(description="Initialize a new Sentinel instance.")
 parser.set_defaults(handler=lambda args: up(args), transferable=True)
 parser.add_argument(
     "--name", "-n", help="Name of the database environment", required=True
