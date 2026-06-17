@@ -158,7 +158,7 @@ class CredentialLoader:
                             else:
                                 if self.verifier.cues:
                                     self.process_verifier_cues()
-                                    confinue
+                                    continue
                         except Exception as e:
                             logger.error(
                                 f"WatchedAdjudicationPoller: Failed to export credential for {credential_said}: {e}"
