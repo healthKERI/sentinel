@@ -155,6 +155,10 @@ class CredentialLoader:
                                     credential_said=credential_said,
                                     export_dir=self.export_dir,
                                 )
+                            else:
+                                if self.verifier.cues:
+                                    self.process_verifier_cues()
+                                    confinue
                         except Exception as e:
                             logger.error(
                                 f"WatchedAdjudicationPoller: Failed to export credential for {credential_said}: {e}"
@@ -188,3 +192,13 @@ class CredentialLoader:
         logger.error(
             f"_load_credential: Failed to load credential {credential_said} after {max_attempts} attempts"
         )
+
+    async def process_verifier_cues(self):
+        while self.verifier.cues:
+            cue = self.verifier.cues.popleft()
+            kin = cue.get("kin", None)
+            match kin:
+                case "proof":
+                    chain_said = cue.get("said", None)
+                    if chain_said:
+                        await self._load_credential(dict(s="0", i=chain_said))
