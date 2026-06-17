@@ -75,10 +75,6 @@ class Oobiery:
         self._running = False
         if self._oobi_task and not self._oobi_task.done():
             self._oobi_task.cancel()
-            try:
-                await self._oobi_task
-            except asyncio.CancelledError:
-                pass
 
         await self.client.aclose()
 

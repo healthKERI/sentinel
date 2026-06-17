@@ -68,7 +68,8 @@ class Receiptor:
                 pass
         await self.client.aclose()
 
-    def _build_witness_url(self, hab, wit: str, path: str) -> str:
+    @staticmethod
+    def _build_witness_url(hab, wit: str, path: str) -> str:
         """Build URL for witness endpoint
 
         Parameters:
