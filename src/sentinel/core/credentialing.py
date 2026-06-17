@@ -8,11 +8,10 @@ sentinel.core.credentialing package
 
 import asyncio
 
-from keri.core import serdering, parsing
-from keri.db import dbing
+import httpx
 from keri import help
+from keri.core import parsing
 from keri.vdr import verifying
-
 from sentinel.core import filing
 from sentinel.core.authing import RequestAuth, Authenticater
 
@@ -68,7 +67,7 @@ class CredentialLoader:
         self.export_dir = export_dir
         self.registrar_url = registrar_url
 
-    async def search_for_credentials(self, pre, local_sn, remote_sn):
+    async def search_for_credentials(self, pre, current_sn):
         """
         Search for and load credentials from events between local and remote sequence numbers.
 
@@ -78,22 +77,65 @@ class CredentialLoader:
 
         Args:
             pre: The prefix (AID) of the watched identifier
-            local_sn: The local sequence number (starting point, inclusive)
-            remote_sn: The remote sequence number (ending point, inclusive)
+            current_sn: The local sequence number of the AID to search (starting point, inclusive)
         """
 
-        for sn in range(local_sn, remote_sn + 1):
-            pdig = self.hby.db.getKeLast(dbing.snKey(pre, sn))
-            if not pdig:
-                continue
+        base_delay = 5.0  # Start with 1 second
+        max_attempts = 6
 
-            evt_key = dbing.dgKey(pre, bytes(pdig))  # get message
-            raw = self.hby.db.getEvt(key=evt_key)
-            serder = serdering.SerderKERI(raw=bytes(raw))
-            for seal in serder.seals:
-                await self._load_credential(seal)
+        url = f"{self.registrar_url}/credentials/search?issuer={pre}&issuer_sn={current_sn}"
 
-    async def _load_credential(self, seal: dict):
+        async with httpx.AsyncClient() as client:
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    response = await client.get(url)
+
+                    if response.status_code == 200:
+                        logger.info(
+                            f"_load_credential: Successfully queried for issuer {pre} credentials"
+                        )
+
+                        credential_data = response.json()
+                        saids = credential_data.get("credentials", [])
+
+                        # Try to load and parse all the credentials in parallel
+                        await asyncio.gather(
+                            *[self._load_credential(said) for said in saids]
+                        )
+
+                        self.psr.kvy.processEscrows()
+                        self.rgy.tvy.processEscrows()
+                        self.verifier.processEscrows()
+
+                        # Export all credentials to filesystem in parallel
+                        await asyncio.gather(
+                            *[self._save_credential(said) for said in saids]
+                        )
+
+                        return
+
+                    elif response.status_code == 412:
+                        logger.info(
+                            "_load_credential: Registrar issuer not up to date, retrying"
+                        )
+                    else:
+                        logger.error(
+                            f"_load_credential: Unexpected status code {response.status_code} for issuer {pre}"
+                        )
+                        return
+
+                except Exception as e:
+                    logger.error(
+                        f"_load_credential: Attempt {attempt} raised exception: {e}"
+                    )
+
+                # If this wasn't the last attempt, wait before retrying
+                if attempt < max_attempts:
+                    delay = base_delay * (2 ** (attempt - 1))
+                    logger.debug(f"_load_credential: Waiting {delay}s before retry")
+                    await asyncio.sleep(delay)
+
+    async def _load_credential(self, credential_said):
         """
         Load a credential from the registrar with exponential backoff.
 
@@ -101,24 +143,17 @@ class CredentialLoader:
         using exponential backoff between attempts (1s, 2s, 4s, 8s, etc.).
 
         Args:
-            seal: The seal representing a possible credential issuance
+            credential_said: The said of the credential to load.
 
         Returns:
             The response if successful, None otherwise
         """
-        if seal["s"] != "0":
-            logger.info(f"Seal {seal} is not an issuance")
-            return
-
-        credential_said = seal["i"]
         if self.rgy.reger.creds.get(keys=(credential_said,)) is not None:
             logger.info(f"Credential {credential_said} already exists.")
             return
 
-        import httpx
-
         base_delay = 1.0  # Start with 1 second
-        max_attempts = 6
+        max_attempts = 3
 
         url = (
             f"{self.registrar_url}/credential/{credential_said}?registry=true&tel=true"
@@ -140,44 +175,8 @@ class CredentialLoader:
 
                         credential_data = response.content
                         self.psr.parse(credential_data)
-                        self.psr.kvy.processEscrows()
-                        self.rgy.tvy.processEscrows()
-                        self.verifier.processEscrows()
-
-                        # Export credential to filesystem
-                        try:
-                            if (
-                                self.rgy.reger.creds.get(keys=(credential_said,))
-                                is not None
-                            ):
-                                await filing.export_credential(
-                                    rgy=self.rgy,
-                                    credential_said=credential_said,
-                                    export_dir=self.export_dir,
-                                )
-                            else:
-                                if self.verifier.cues:
-                                    self.process_verifier_cues()
-                                    continue
-                        except Exception as e:
-                            logger.error(
-                                f"WatchedAdjudicationPoller: Failed to export credential for {credential_said}: {e}"
-                            )
-
                         return
-                    else:
-                        reg_url = f"{self.registrar_url}/tel/{credential_said}"
-                        response = await client.get(reg_url)
 
-                        if response.status_code == 200:
-                            logger.info(
-                                f"_load_credential: Anchor said {credential_said} is a TEL event"
-                            )
-                            return
-
-                        logger.warning(
-                            f"_load_credential: Attempt {attempt} failed with status {response.status_code}"
-                        )
                 except Exception as e:
                     logger.error(
                         f"_load_credential: Attempt {attempt} raised exception: {e}"
@@ -193,12 +192,15 @@ class CredentialLoader:
             f"_load_credential: Failed to load credential {credential_said} after {max_attempts} attempts"
         )
 
-    async def process_verifier_cues(self):
-        while self.verifier.cues:
-            cue = self.verifier.cues.popleft()
-            kin = cue.get("kin", None)
-            match kin:
-                case "proof":
-                    chain_said = cue.get("said", None)
-                    if chain_said:
-                        await self._load_credential(dict(s="0", i=chain_said))
+    async def _save_credential(self, said):
+        try:
+            if self.rgy.reger.creds.get(keys=(said,)) is not None:
+                await filing.export_credential(
+                    rgy=self.rgy,
+                    credential_said=said,
+                    export_dir=self.export_dir,
+                )
+        except Exception as e:
+            logger.error(
+                f"WatchedAdjudicationPoller: Failed to export credential for {said}: {e}"
+            )

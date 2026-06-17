@@ -540,7 +540,7 @@ class Sentinel:
                     )
                     asyncio.create_task(
                         self.credential_loader.search_for_credentials(
-                            kever.serder.pre, current_sn, state.sn
+                            kever.serder.pre, state.sn
                         )
                     )
 

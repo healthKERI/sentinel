@@ -532,7 +532,7 @@ class WatchedAdjudicationPoller:
                         if self.credential_loader:
                             asyncio.create_task(
                                 self.credential_loader.search_for_credentials(
-                                    watched_aid, local_sn, remote_sn
+                                    watched_aid, remote_sn
                                 )
                             )
 
