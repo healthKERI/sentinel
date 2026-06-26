@@ -109,6 +109,9 @@ def merge_config_and_args(args):
     Merge configuration file values with CLI arguments.
     CLI arguments take precedence over config file values.
 
+    SaaS mode (local: false) requires a config file because server_name and
+    server_alias cannot be expressed as CLI flags.
+
     Args:
         args: Parsed command line arguments from argparse
 
@@ -118,12 +121,17 @@ def merge_config_and_args(args):
     Raises:
         ValueError: If config file not found or required parameters missing
     """
+    args.server_name = None
+    args.server_alias = None
+
     # If no config file specified, validate required args and return
     if args.config is None:
         if not args.name:
             raise ValueError("--name is required")
         if not args.alias:
             raise ValueError("--alias is required")
+        if not args.local:
+            raise ValueError("SaaS mode (local: false) requires --config")
         return args
 
     # Load config file
@@ -160,11 +168,20 @@ def merge_config_and_args(args):
     if not args.uxd and config.uxd:
         args.uxd = config.uxd
 
+    # SaaS-only fields — required when local is false
+    args.server_name = config.server_name
+    args.server_alias = config.server_alias
+
     # Validate required parameters are present after merge
     if not args.name:
         raise ValueError("--name is required (provide via CLI or config file)")
     if not args.alias:
         raise ValueError("--alias is required (provide via CLI or config file)")
+    if not args.local:
+        if not args.server_name:
+            raise ValueError("SaaS mode requires server_name in config file")
+        if not args.server_alias:
+            raise ValueError("SaaS mode requires server_alias in config file")
 
     return args
 
@@ -224,6 +241,8 @@ async def async_run_sentinel(args):
         services = await sentineling.setup_hk(
             name=args.name,
             alias=args.alias,
+            server_name=args.server_name,
+            server_alias=args.server_alias,
             base=args.base,
             bran=args.bran,
             uxd=args.uxd,

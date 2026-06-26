@@ -21,7 +21,7 @@ from keri.core import coring, parsing
 from keri.vdr.credentialing import Regery
 
 from sentinel.core import filing, remoting
-from sentinel.core.credentialing import CredentialLoader
+from sentinel.core.credentialing import CredentialLoader, SaaSCredentialLoader
 
 logger = help.ogler.getLogger()
 
@@ -338,6 +338,7 @@ class WatchedAdjudicationPoller:
         poll_interval: float = 30.0,
         export_dir: str = "/usr/local/sentinel",
         registrar_url: Optional[str] = None,
+        saas_loader: Optional[SaaSCredentialLoader] = None,
     ):
         """
         Initialize the WatchedAdjudicationPoller.
@@ -348,16 +349,18 @@ class WatchedAdjudicationPoller:
             db: Database instance with watched_poll table
             poll_interval: Polling interval in seconds (default: 30 seconds)
             export_dir: Directory for exporting CESR files (default: /usr/local/sentinel)
-            registrar_url: URL for credential registrar API (default: None)
+            registrar_url: URL for credential registrar API (local mode, default: None)
+            saas_loader: SaaSCredentialLoader for SaaS mode (takes priority over registrar_url)
 
         """
         self.hby = hby
         self.essr = essr
-        self.credential_loader = (
-            None
-            if not registrar_url
-            else CredentialLoader(hby, self.essr.hab, rgy, export_dir, registrar_url)
-        )
+        if saas_loader is not None:
+            self.credential_loader = saas_loader
+        elif registrar_url:
+            self.credential_loader = CredentialLoader(hby, self.essr.hab, rgy, export_dir, registrar_url)
+        else:
+            self.credential_loader = None
 
         self.db = db
         self.poll_interval = poll_interval

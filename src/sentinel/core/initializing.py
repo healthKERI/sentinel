@@ -280,6 +280,30 @@ class SentinelConfig:
             self._data["alias"] = value
 
     @property
+    def server_name(self) -> Optional[str]:
+        """Keriguard server keystore name (SaaS mode only)."""
+        return self._data.get("server_name")
+
+    @server_name.setter
+    def server_name(self, value: Optional[str]) -> None:
+        if value is None:
+            self._data.pop("server_name", None)
+        else:
+            self._data["server_name"] = value
+
+    @property
+    def server_alias(self) -> Optional[str]:
+        """Keriguard server identifier alias (SaaS mode only)."""
+        return self._data.get("server_alias")
+
+    @server_alias.setter
+    def server_alias(self, value: Optional[str]) -> None:
+        if value is None:
+            self._data.pop("server_alias", None)
+        else:
+            self._data["server_alias"] = value
+
+    @property
     def bran(self) -> Optional[str]:
         """22 character encryption passcode. Supports both 'bran' and 'passcode' keys."""
         return self._data.get("bran") or self._data.get("passcode")

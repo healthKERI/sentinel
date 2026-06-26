@@ -27,7 +27,7 @@ async def sync_server_key_state(name, alias, base, bran, essr):
     dgkey = dbing.dgKey(ser.preb, ser.saidb)
 
     seal = hab.db.getAes(dgkey)
-    if not seal:
+    if not seal and hab.kever.delpre:
         delegator_aid = hab.kever.delpre
         response = await essr.request(
             f"/identifiers/{delegator_aid}?kel=true", method="GET"

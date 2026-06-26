@@ -12,6 +12,7 @@ from keri.app import habbing
 from keri import help
 from keri.vdr import credentialing
 
+from sentinel.core.credentialing import SaaSCredentialLoader
 from sentinel.core.eventing import sync_server_key_state
 from sentinel.core.oobiing import Oobiery
 from sentinel.core.watching import WatchedAdjudicationPoller, ObvsSocketListener
@@ -115,6 +116,8 @@ async def setup_local(
 async def setup_hk(
     name: str,
     alias: str,
+    server_name: str,
+    server_alias: str,
     base: str,
     bran: str,
     uxd: bool,
@@ -122,33 +125,29 @@ async def setup_hk(
     registrar_url: str | None = None,
 ) -> List:
     """
-    Setup sentinel watcher configuration for KERI local watching.
-
-    Configures a sentinel instance that monitors KERI events using either the healthKERI
-    Watcher Network or direct witness querying.
+    Setup sentinel watcher configuration for healthKERI SaaS mode.
 
     Parameters:
-        name: The name of the sentinel instance
-        alias: The alias identifier for the sentinel
-        base: The base directory path for sentinel data storage
-        bran: The passcode for the sentinel instance
-        uxd: Flag indicating whether to use Unix domain socket
-        export_dir: Directory for exporting CESR files
-        registrar_url: URL for credential registrar
+        name: Sentinel keystore name (e.g. "keriguard-sentinel")
+        alias: Sentinel identifier alias (e.g. "keriguard-sentinel")
+        server_name: Keriguard server keystore name (e.g. "keriguard")
+        server_alias: Keriguard server identifier alias (e.g. "keriguard")
+        base: Base directory path for KERI keystore storage
+        bran: Passcode for the sentinel keystore
+        uxd: Listen on Unix domain socket
+        export_dir: Directory for exporting CESR credential files
+        registrar_url: Unused in SaaS mode; kept for call-site compatibility
 
     Returns:
-        List: A list of configured task services for the sentinel instance
+        List: Configured services for the sentinel instance
 
     """
-    sentinel_name = f"{name}-sentinel"
-    sentinel_alias = f"{alias}-sentinel"
-
     services = list()
-    hby = habbing.Habery(name=sentinel_name, base=base, bran=bran)
-    hab = hby.habByName(sentinel_alias)
+    hby = habbing.Habery(name=name, base=base, bran=bran)
+    hab = hby.habByName(alias)
     if not hab:
         raise ValueError(
-            f"Sentinel alias for '{alias}' not found in sentinel Habery '{name}'"
+            f"Sentinel alias '{alias}' not found in Habery '{name}'"
         )
 
     rgy = credentialing.Regery(hby=hby, name=name, base=base)
@@ -157,7 +156,11 @@ async def setup_hk(
     config = HealthKERIConfig.get_instance()
     essr = APIClient(url=config.protected_url, root=config.api_aid, hby=hby, hab=hab)
 
-    await sync_server_key_state(name, alias, base, bran, essr)
+    await sync_server_key_state(server_name, server_alias, base, bran, essr)
+
+    saas_loader = SaaSCredentialLoader(
+        hby=hby, hab=hab, rgy=rgy, export_dir=export_dir, essr=essr
+    )
 
     poller = WatchedAdjudicationPoller(
         hby=hby,
@@ -166,7 +169,7 @@ async def setup_hk(
         db=db,
         poll_interval=15.0,
         export_dir=export_dir,
-        registrar_url=registrar_url,
+        saas_loader=saas_loader,
     )
 
     services.append(poller)
@@ -193,7 +196,6 @@ async def setup_hk(
             db=db,
             socket_path=socket_path,
             poll_interval=0.5,
-            registrar_url=registrar_url,
             export_dir=export_dir,
         )
         services.append(socket_listener)

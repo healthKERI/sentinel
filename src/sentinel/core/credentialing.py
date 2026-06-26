@@ -18,6 +18,94 @@ from sentinel.core.authing import RequestAuth, Authenticater
 logger = help.ogler.getLogger()
 
 
+class SaaSCredentialLoader:
+    """
+    SaaS-mode credential loader: uses ESSR to talk to hkweb's /registrar/ API.
+
+    Mirrors the interface of CredentialLoader but uses the ESSR client instead of
+    a plain HTTP registrar URL.
+    """
+
+    def __init__(self, hby, hab, rgy, export_dir, essr):
+        self.hby = hby
+        self.hab = hab
+        self.rgy = rgy
+        self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
+        self.psr = parsing.Parser(kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier)
+        self.export_dir = export_dir
+        self.essr = essr
+
+    async def search_for_credentials(self, pre, current_sn):
+        """
+        Search hkweb for credentials issued by pre at or after current_sn.
+
+        Retries with exponential backoff on 412 (platform not yet caught up).
+        """
+        base_delay = 5.0
+        max_attempts = 6
+        path = f"/registrar/credentials/search?issuer={pre}&issuer_sn={current_sn}"
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = await self.essr.request(path=path, method="GET")
+                if response.status_code == 200:
+                    logger.info(
+                        f"SaaSCredentialLoader: queried credentials for issuer {pre}"
+                    )
+                    saids = response.json().get("credentials", [])
+                    await asyncio.gather(*[self._load_credential(said) for said in saids])
+                    self.psr.kvy.processEscrows()
+                    self.rgy.tvy.processEscrows()
+                    self.verifier.processEscrows()
+                    await asyncio.gather(*[self._save_credential(said) for said in saids])
+                    return
+                elif response.status_code == 412:
+                    logger.info(
+                        "SaaSCredentialLoader: hkweb not caught up to issuer_sn, retrying"
+                    )
+                else:
+                    logger.error(
+                        f"SaaSCredentialLoader: unexpected status {response.status_code} for issuer {pre}"
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"SaaSCredentialLoader: attempt {attempt} error: {e}")
+
+            if attempt < max_attempts:
+                delay = base_delay * (2 ** (attempt - 1))
+                logger.debug(f"SaaSCredentialLoader: waiting {delay}s before retry")
+                await asyncio.sleep(delay)
+
+    async def _load_credential(self, said):
+        if self.rgy.reger.creds.get(keys=(said,)) is not None:
+            logger.info(f"SaaSCredentialLoader: credential {said} already exists")
+            return
+        path = f"/registrar/credential/{said}?registry=true&tel=true"
+        try:
+            response = await self.essr.request(path=path, method="GET")
+            if response.status_code == 200:
+                self.psr.parse(response.content)
+            else:
+                logger.error(
+                    f"SaaSCredentialLoader: failed to load {said}, status {response.status_code}"
+                )
+        except Exception as e:
+            logger.error(f"SaaSCredentialLoader: error loading {said}: {e}")
+
+    async def _save_credential(self, said):
+        try:
+            if self.rgy.reger.creds.get(keys=(said,)) is not None:
+                await filing.export_credential(
+                    rgy=self.rgy,
+                    credential_said=said,
+                    export_dir=self.export_dir,
+                )
+        except Exception as e:
+            logger.error(
+                f"SaaSCredentialLoader: failed to export credential {said}: {e}"
+            )
+
+
 class CredentialLoader:
     """
     Manages credential loading and verification from a registrar service.
