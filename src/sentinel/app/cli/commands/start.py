@@ -241,8 +241,6 @@ async def async_run_sentinel(args):
         services = await sentineling.setup_hk(
             name=args.name,
             alias=args.alias,
-            server_name=args.server_name,
-            server_alias=args.server_alias,
             base=args.base,
             bran=args.bran,
             uxd=args.uxd,

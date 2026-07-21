@@ -8,12 +8,11 @@ from typing import List
 
 from kept.hk.configing import HealthKERIConfig
 from kept.hk.essring import APIClient
-from keri.app import habbing
 from keri import help
+from keri.app import habbing
 from keri.vdr import credentialing
 
 from sentinel.core.credentialing import SaaSCredentialLoader
-from sentinel.core.eventing import sync_server_key_state
 from sentinel.core.oobiing import Oobiery
 from sentinel.core.watching import WatchedAdjudicationPoller, ObvsSocketListener
 from sentinel.core.witnessing import LocalSocketListener
@@ -116,8 +115,6 @@ async def setup_local(
 async def setup_hk(
     name: str,
     alias: str,
-    server_name: str,
-    server_alias: str,
     base: str,
     bran: str,
     uxd: bool,
@@ -130,8 +127,6 @@ async def setup_hk(
     Parameters:
         name: Sentinel keystore name (e.g. "keriguard-sentinel")
         alias: Sentinel identifier alias (e.g. "keriguard-sentinel")
-        server_name: Keriguard server keystore name (e.g. "keriguard")
-        server_alias: Keriguard server identifier alias (e.g. "keriguard")
         base: Base directory path for KERI keystore storage
         bran: Passcode for the sentinel keystore
         uxd: Listen on Unix domain socket
@@ -152,9 +147,10 @@ async def setup_hk(
     db = SentinelBaser(name=name, headDirPath=base)
 
     config = HealthKERIConfig.get_instance()
+    logger.info(
+        f"Initializing sentinel services: {hab.pre} connecting to {config.protected_url}: {config.api_aid}"
+    )
     essr = APIClient(url=config.protected_url, root=config.api_aid, hby=hby, hab=hab)
-
-    await sync_server_key_state(server_name, server_alias, base, bran, essr)
 
     saas_loader = SaaSCredentialLoader(
         hby=hby, hab=hab, rgy=rgy, export_dir=export_dir, essr=essr

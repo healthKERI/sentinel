@@ -253,7 +253,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
     @patch("sentinel.app.sentineling.startup", create=True)
     @patch("sentinel.app.sentineling.SaaSCredentialLoader")
     @patch("sentinel.app.sentineling.credentialing.Regery")
-    @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
     @patch("sentinel.app.sentineling.APIClient")
@@ -268,7 +267,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_api_client_class,
         mock_poller_class,
         mock_socket_listener_class,
-        mock_sync_server,
         mock_regery_class,
         mock_saas_loader_class,
         mock_startup,
@@ -307,8 +305,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         result = await setup_hk(
             name=self.name,
             alias=self.alias,
-            server_name=self.server_name,
-            server_alias=self.server_alias,
             base=self.base,
             bran=self.bran,
             uxd=False,
@@ -335,11 +331,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             root=mock_config.api_aid,
             hby=mock_hby,
             hab=mock_hab,
-        )
-
-        # Verify sync_server_key_state was called with server_name/server_alias
-        mock_sync_server.assert_called_once_with(
-            self.server_name, self.server_alias, self.base, self.bran, mock_essr
         )
 
         # Verify SaaSCredentialLoader initialization
@@ -373,7 +364,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
     @patch("sentinel.app.sentineling.startup", create=True)
     @patch("sentinel.app.sentineling.SaaSCredentialLoader")
     @patch("sentinel.app.sentineling.credentialing.Regery")
-    @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
     @patch("sentinel.app.sentineling.APIClient")
@@ -388,7 +378,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_api_client_class,
         mock_poller_class,
         mock_socket_listener_class,
-        mock_sync_server,
         mock_regery_class,
         mock_saas_loader_class,
         mock_startup,
@@ -430,8 +419,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         result = await setup_hk(
             name=self.name,
             alias=self.alias,
-            server_name=self.server_name,
-            server_alias=self.server_alias,
             base=self.base,
             bran=self.bran,
             uxd=True,
@@ -458,11 +445,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             root=mock_config.api_aid,
             hby=mock_hby,
             hab=mock_hab,
-        )
-
-        # Verify sync_server_key_state was called with server_name/server_alias
-        mock_sync_server.assert_called_once_with(
-            self.server_name, self.server_alias, self.base, self.bran, mock_essr
         )
 
         # Verify WatchedAdjudicationPoller initialization with saas_loader
@@ -496,7 +478,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
     @patch("sentinel.app.sentineling.startup", create=True)
     @patch("sentinel.app.sentineling.SaaSCredentialLoader")
     @patch("sentinel.app.sentineling.credentialing.Regery")
-    @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
     @patch("sentinel.app.sentineling.APIClient")
@@ -511,7 +492,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_api_client_class,
         mock_poller_class,
         mock_socket_listener_class,
-        mock_sync_server,
         mock_regery_class,
         mock_saas_loader_class,
         mock_startup,
@@ -527,8 +507,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
             await setup_hk(
                 name=self.name,
                 alias=self.alias,
-                server_name=self.server_name,
-                server_alias=self.server_alias,
                 base=self.base,
                 bran=self.bran,
                 uxd=False,
@@ -548,14 +526,12 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_baser_class.assert_not_called()
         mock_config_class.get_instance.assert_not_called()
         mock_api_client_class.assert_not_called()
-        mock_sync_server.assert_not_called()
         mock_poller_class.assert_not_called()
         mock_socket_listener_class.assert_not_called()
 
     @patch("sentinel.app.sentineling.startup", create=True)
     @patch("sentinel.app.sentineling.SaaSCredentialLoader")
     @patch("sentinel.app.sentineling.credentialing.Regery")
-    @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
     @patch("sentinel.app.sentineling.APIClient")
@@ -570,7 +546,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_api_client_class,
         mock_poller_class,
         mock_socket_listener_class,
-        mock_sync_server,
         mock_regery_class,
         mock_saas_loader_class,
         mock_startup,
@@ -612,8 +587,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         await setup_hk(
             name="different_name",
             alias=self.alias,
-            server_name=self.server_name,
-            server_alias=self.server_alias,
             base=self.base,
             bran=self.bran,
             uxd=True,
@@ -629,7 +602,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
     @patch("sentinel.app.sentineling.startup", create=True)
     @patch("sentinel.app.sentineling.SaaSCredentialLoader")
     @patch("sentinel.app.sentineling.credentialing.Regery")
-    @patch("sentinel.app.sentineling.sync_server_key_state", new_callable=AsyncMock)
     @patch("sentinel.app.sentineling.ObvsSocketListener")
     @patch("sentinel.app.sentineling.WatchedAdjudicationPoller")
     @patch("sentinel.app.sentineling.APIClient")
@@ -644,7 +616,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         mock_api_client_class,
         mock_poller_class,
         mock_socket_listener_class,
-        mock_sync_server,
         mock_regery_class,
         mock_saas_loader_class,
         mock_startup,
@@ -683,8 +654,6 @@ class TestSetupHk(unittest.IsolatedAsyncioTestCase):
         result = await setup_hk(
             name=self.name,
             alias=self.alias,
-            server_name=self.server_name,
-            server_alias=self.server_alias,
             base=self.base,
             bran=self.bran,
             uxd=False,
