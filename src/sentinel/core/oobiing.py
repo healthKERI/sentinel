@@ -12,6 +12,7 @@ from urllib import parse
 from urllib.parse import urlparse
 
 import httpx
+import requests
 
 from keri.core import coring
 from keri import help
@@ -428,3 +429,25 @@ class Oobiery:
 
         obr = basing.OobiRecord(cid=eid, date=dt)
         self.hby.db.oobis.put(keys=(oobi,), val=obr)
+
+
+def load_oobi(hby, oobi: str, alias: str):
+    org = connecting.Organizer(hby=hby)
+    purl = urlparse(oobi)
+    match = OOBI_RE.match(purl.path)
+    if not match:
+        raise ValueError(f"Invalid OOBI URL {oobi}")
+
+    aid = match.group("cid")
+
+    response = requests.get(oobi)
+    response.raise_for_status()
+
+    hby.psr.parse(ims=response.content)
+    if aid not in hby.kevers:
+        raise ValueError(f"Invalid OOBI URL {oobi} for {aid}")
+
+    hby.kvy.processEscrows()
+    org.update(pre=aid, data=dict(alias=alias, oobi=oobi))
+
+    return aid

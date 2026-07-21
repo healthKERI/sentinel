@@ -492,20 +492,20 @@ class WatchedAdjudicationPoller:
                     remote_sn = int(adj.get("sn", 0))
 
                     if not watched_aid:
-                        logger.warning(
+                        logger.info(
                             "WatchedAdjudicationPoller: Adjudication missing aid, skipping"
                         )
                         continue
 
                     # Check local state
-                    kever = self.hby.kevers.get(watched_aid)
-
-                    if not kever:
-                        logger.debug(
-                            f"WatchedAdjudicationPoller: Watched identifier {watched_aid} "
+                    if watched_aid not in self.hby.kevers:
+                        logger.info(
+                            f"WatchedAdjudicationPoller: Watched identifier {watched_aid} {self.hby.kevers}"
                             f"not found locally, skipping"
                         )
                         continue
+
+                    kever = self.hby.kevers[watched_aid]
 
                     contact = org.get(pre=watched_aid)
                     watched_name = contact.get("alias") if contact else watched_aid
@@ -514,30 +514,35 @@ class WatchedAdjudicationPoller:
 
                     # Check if out of sync (local behind remote)
                     if local_sn < remote_sn:
-                        logger.debug(
+                        logger.info(
                             f"WatchedAdjudicationPoller: {watched_name} is out of sync - "
                             f"local SN {local_sn} < remote SN {remote_sn}"
                         )
 
                         await remoting.sync_watched_identifier(
-                            self.hby, self.essr, kever.pre
+                            self.hby, self.essr, kever.serder.pre
                         )
 
                         # Export KEL to filesystem
                         try:
                             await filing.export_kel(
-                                hby=self.hby, aid=kever.pre, export_dir=self.export_dir
+                                hby=self.hby,
+                                aid=kever.serder.pre,
+                                export_dir=self.export_dir,
                             )
                         except Exception as e:
-                            logger.error(
+                            logger.exception(
                                 f"WatchedAdjudicationPoller: Failed to export KEL for {watched_name}: {e}"
                             )
 
                         # Trigger credential search if appropriate
+                        logger.info(
+                            f"WatchedAdjudicationPoller: Triggering credential search for {self.credential_loader} as {local_sn}"
+                        )
                         if self.credential_loader:
                             asyncio.create_task(
                                 self.credential_loader.search_for_credentials(
-                                    watched_aid, remote_sn
+                                    watched_aid, local_sn
                                 )
                             )
 
