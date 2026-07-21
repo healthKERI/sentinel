@@ -498,7 +498,7 @@ class WatchedAdjudicationPoller:
                         continue
 
                     # Check local state
-                    if not watched_aid in self.hby.kevers:
+                    if watched_aid not in self.hby.kevers:
                         logger.info(
                             f"WatchedAdjudicationPoller: Watched identifier {watched_aid} {self.hby.kevers}"
                             f"not found locally, skipping"

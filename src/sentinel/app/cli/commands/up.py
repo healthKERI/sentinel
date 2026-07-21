@@ -12,7 +12,6 @@ from keri import core, kering
 from keri import help
 from keri.app import habbing
 from keri.app.keeping import Algos
-from keri.core import parsing
 
 from sentinel.core.initializing import SentinelConfig
 from sentinel.core.oobiing import load_oobi
