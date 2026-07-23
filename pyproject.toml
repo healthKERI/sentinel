@@ -32,7 +32,7 @@ dependencies = [
     'httpx>=0.28.1',
     "requests>=2.32.4",
     'requests_toolbelt==1.0.0',
-    'pyopt>=0.84'
+    'pyotp>=2.10.0'
 ]
 
 [dependency-groups]

@@ -189,7 +189,6 @@ def merge_config_and_args(args):
 def launch(args):
     # Merge config file with CLI args (CLI args take precedence)
     args = merge_config_and_args(args)
-    print(args.registrar_url)
 
     help.ogler.level = logging.getLevelName(args.loglevel)
     base_formatter = logging.Formatter(FORMAT)  # basic format
