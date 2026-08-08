@@ -154,7 +154,7 @@ class TestSentinelBaser(unittest.TestCase):
         result = baser.reopen()
 
         # Verify parent reopen was called
-        mock_super_reopen.assert_called_once_with()
+        mock_super_reopen.assert_called_once_with(False)
 
         # Verify CesrSuber was called twice (for watched_poll and watched_scan_index)
         self.assertEqual(mock_cesr_suber_class.call_count, 2)
@@ -194,10 +194,10 @@ class TestSentinelBaser(unittest.TestCase):
         baser.env = mock_env  # Add env attribute
 
         # Call reopen with kwargs
-        result = baser.reopen(readonly=True)
+        result = baser.reopen(arg=[1])
 
         # Verify parent reopen was called with kwargs
-        mock_super_reopen.assert_called_once_with(readonly=True)
+        mock_super_reopen.assert_called_once_with(False, arg=[1])
 
         # Verify watched_poll was set
         self.assertEqual(baser.watched_poll, mock_suber)

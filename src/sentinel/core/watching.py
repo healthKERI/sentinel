@@ -434,11 +434,8 @@ class WatchedAdjudicationPoller:
                         f"WatchedAdjudicationPoller: First poll, using {last_poll_dt}"
                     )
 
-                # Query ESSR for adjudications after last poll time
-                # Format datetime for API query (ISO 8601)
-                after_param = last_poll_dt.isoformat()
-                path = f"/adjudications?date={urllib.parse.quote(after_param)}"
-
+                # Query ESSR for watched index
+                path = "/watched/index"
                 logger.debug(f"WatchedAdjudicationPoller: Querying {path}")
 
                 # Poll adjudications
@@ -474,22 +471,21 @@ class WatchedAdjudicationPoller:
                 return
 
             data = response.json()
-            adjudications = data.get("adjudications", [])
+            watched_index = data.get("watched", [])
 
-            if not adjudications:
-                logger.info("WatchedAdjudicationPoller: No new adjudications")
+            if not watched_index:
+                logger.info("WatchedAdjudicationPoller: No watched identifiers")
             else:
                 logger.info(
-                    f"WatchedAdjudicationPoller: Found {len(adjudications)} adjudications"
+                    f"WatchedAdjudicationPoller: Found {len(watched_index)} watched identifiers"
                 )
 
             org = Organizer(hby=self.hby)
 
-            # Process each adjudication
-            for adj in adjudications:
+            # Process each watched identifier
+            for watched_aid, watched_sn, watched_said in watched_index:
                 try:
-                    watched_aid = adj.get("watched_aid")
-                    remote_sn = int(adj.get("sn", 0))
+                    remote_sn = int(watched_sn, 16)
 
                     if not watched_aid:
                         logger.info(

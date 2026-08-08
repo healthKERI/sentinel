@@ -71,8 +71,8 @@ class SentinelBaser(dbing.LMDBer):
             name=name, headDirPath=headDirPath, reopen=reopen, **kwa
         )
 
-    def reopen(self, **kwa):
-        super(SentinelBaser, self).reopen(**kwa)
+    def reopen(self, readonly: bool = False, **kwa):
+        super(SentinelBaser, self).reopen(readonly, **kwa)
 
         # Most recent watched events
         self.watched_poll = subing.CesrSuber(

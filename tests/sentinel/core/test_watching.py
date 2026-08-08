@@ -893,7 +893,7 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         mock_response.status_code = 200
         mock_response.text = "OK"
         mock_response.json.return_value = {
-            "adjudications": [{"watched_aid": "ETest123", "sn": "5"}]
+            "watched": [("ETest123", "5", "ESomeSaid123")]
         }
 
         self.mock_essr.request = AsyncMock(return_value=mock_response)
@@ -904,6 +904,9 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
         mock_sner = Mock()
         mock_sner.num = 3
         mock_kever.sner = mock_sner
+        mock_serder = Mock()
+        mock_serder.pre = "ETest123"
+        mock_kever.serder = mock_serder
         self.mock_hby.kevers = {"ETest123": mock_kever}
 
         poller = WatchedAdjudicationPoller(
@@ -924,10 +927,12 @@ class TestWatchedAdjudicationPoller(unittest.IsolatedAsyncioTestCase):
                 new_callable=AsyncMock,
             ) as mock_sync:
                 with patch("sentinel.core.watching.coring.Dater"):
-                    # Call the method
-                    await poller._async_poll_adjudications(
-                        "/adjudications?date=2024-01-01"
-                    )
+                    with patch(
+                        "sentinel.core.watching.filing.export_kel",
+                        new_callable=AsyncMock,
+                    ):
+                        # Call the method
+                        await poller._async_poll_adjudications("/watched/index")
 
         # Verify sync was called
         mock_sync.assert_called_once()
