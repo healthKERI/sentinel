@@ -49,10 +49,10 @@ class SaaSCredentialLoader:
             try:
                 response = await self.essr.request(path=path, method="GET")
                 if response.status_code == 200:
-                    logger.info(
-                        f"SaaSCredentialLoader: queried credentials for issuer {pre}"
-                    )
                     saids = response.json().get("credentials", [])
+                    logger.info(
+                        f"SaaSCredentialLoader: queried credentials for issuer {pre}: {saids}"
+                    )
                     await asyncio.gather(
                         *[self._load_credential(said) for said in saids]
                     )

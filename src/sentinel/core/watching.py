@@ -496,9 +496,24 @@ class WatchedAdjudicationPoller:
                     # Check local state
                     if watched_aid not in self.hby.kevers:
                         logger.info(
-                            f"WatchedAdjudicationPoller: Watched identifier {watched_aid} {self.hby.kevers}"
-                            f"not found locally, skipping"
+                            f"WatchedAdjudicationPoller: Watched identifier {watched_aid} "
+                            f"not found locally, loading now"
                         )
+                        await remoting.sync_watched_identifier(
+                            self.hby, self.essr, watched_aid
+                        )
+
+                        # Export KEL to filesystem
+                        try:
+                            await filing.export_kel(
+                                hby=self.hby,
+                                aid=watched_aid,
+                                export_dir=self.export_dir,
+                            )
+                        except Exception as e:
+                            logger.exception(
+                                f"WatchedAdjudicationPoller: Failed to export KEL for {watched_aid}: {e}"
+                            )
                         continue
 
                     kever = self.hby.kevers[watched_aid]
