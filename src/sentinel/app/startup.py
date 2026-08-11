@@ -74,7 +74,9 @@ async def initialize_watched_credentials(
                 # Local mode: Process sequentially
                 # Get all watched identifiers from obvs database
                 watched_oids = []
-                for (cid, aid, oid), observed in hby.db.obvs.getItemIter(keys=(hab.pre,)):
+                for (cid, aid, oid), observed in hby.db.obvs.getItemIter(
+                    keys=(hab.pre,)
+                ):
                     if observed.enabled:
                         watched_oids.append((cid, oid))
 
@@ -216,10 +218,7 @@ async def _process_hk_mode(
         for oid in batch:
             tasks.append(
                 _process_single_hk_identifier(
-                    hby=hby,
-                    essr=essr,
-                    oid=oid,
-                    saas_loader=saas_loader
+                    hby=hby, essr=essr, oid=oid, saas_loader=saas_loader
                 )
             )
 
@@ -254,18 +253,16 @@ async def _process_single_hk_identifier(
         logger.info(f"Startup: Processing {oid}...")
 
         # Adjudicate key state
-        if not await adjudicate_hk(hby=hby, essr=essr, oid=oid, export_dir=saas_loader.export_dir):
+        if not await adjudicate_hk(
+            hby=hby, essr=essr, oid=oid, export_dir=saas_loader.export_dir
+        ):
             logger.warning(f"Startup: Failed to adjudicate {oid}")
             return False
 
         # Scan KEL for credentials (only if registrar_url is configured)
-        await saas_loader.search_for_credentials(
-            oid, 0
-        )
+        await saas_loader.search_for_credentials(oid, 0)
 
-        logger.info(
-            f"Startup: Completed initialization for {oid}"
-        )
+        logger.info(f"Startup: Completed initialization for {oid}")
 
         return True
 
@@ -338,10 +335,7 @@ async def adjudicate_local(
 
 
 async def adjudicate_hk(
-    hby: Habery,
-    essr: APIClient,
-    oid: str,
-    export_dir: str
+    hby: Habery, essr: APIClient, oid: str, export_dir: str
 ) -> bool:
     """
     Adjudicate key state for a watched identifier in healthKERI mode.

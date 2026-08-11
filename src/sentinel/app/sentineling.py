@@ -97,7 +97,7 @@ async def setup_local(
             export_dir=export_dir,
             registrar_url=registrar_url,
             essr=None,  # Local mode doesn't use essr
-            saas_loader=None
+            saas_loader=None,
         )
     else:
         logger.info("No registrar URL configured, skipping credential scan")
@@ -114,12 +114,7 @@ async def setup_local(
 
 
 async def setup_hk(
-    name: str,
-    alias: str,
-    base: str,
-    bran: str,
-    uxd: bool,
-    export_dir: str
+    name: str, alias: str, base: str, bran: str, uxd: bool, export_dir: str
 ) -> List:
     """
     Setup sentinel watcher configuration for healthKERI SaaS mode.
@@ -179,7 +174,7 @@ async def setup_hk(
         export_dir=export_dir,
         essr=essr,
         saas_loader=saas_loader,
-        registrar_url=None
+        registrar_url=None,
     )
 
     if uxd:
