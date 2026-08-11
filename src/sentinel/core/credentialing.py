@@ -51,7 +51,7 @@ class SaaSCredentialLoader:
                 if response.status_code == 200:
                     saids = response.json().get("credentials", [])
                     logger.info(
-                        f"SaaSCredentialLoader: queried credentials for issuer {pre}: {saids}"
+                        f"SaaSCredentialLoader: queried credentials for issuer {pre}: {len(saids)}"
                     )
                     await asyncio.gather(
                         *[self._load_credential(said) for said in saids]
@@ -65,7 +65,7 @@ class SaaSCredentialLoader:
                     return
                 elif response.status_code == 412:
                     logger.info(
-                        "SaaSCredentialLoader: hkweb not caught up to issuer_sn, retrying"
+                        f"SaaSCredentialLoader: hkweb not caught up to issuer_sn: {response.text}, retrying..."
                     )
                 else:
                     logger.error(

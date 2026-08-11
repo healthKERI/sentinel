@@ -314,7 +314,7 @@ async def add_watched_identifier(
             return {"success": False, "error": error_msg}
 
     except Exception as e:
-        logger.error(f"Error adding watched identifier: {e}")
+        logger.exception(f"Error adding watched identifier: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -548,7 +548,7 @@ class WatchedAdjudicationPoller:
 
                         # Trigger credential search if appropriate
                         logger.info(
-                            f"WatchedAdjudicationPoller: Triggering credential search for {self.credential_loader} as {local_sn}"
+                            f"WatchedAdjudicationPoller: Triggering credential search for {watched_aid} at {local_sn}"
                         )
                         if self.credential_loader:
                             asyncio.create_task(

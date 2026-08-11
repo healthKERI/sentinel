@@ -12,7 +12,8 @@ from keri import help
 from keri.app.habbing import Habery, Hab
 from keri.vdr.credentialing import Regery
 
-from sentinel.core.credentialing import CredentialLoader
+from sentinel.core import filing
+from sentinel.core.credentialing import CredentialLoader, SaaSCredentialLoader
 from sentinel.core.remoting import sync_watched_identifier
 from sentinel.core.witnessing import Sentinel
 from sentinel.db.basing import SentinelBaser
@@ -30,6 +31,7 @@ async def initialize_watched_credentials(
     db: SentinelBaser,
     export_dir: str,
     registrar_url: str | None,
+    saas_loader: SaaSCredentialLoader | None,
     essr: APIClient | None = None,
 ) -> None:
     """
@@ -47,6 +49,7 @@ async def initialize_watched_credentials(
         db: SentinelBaser database instance
         export_dir: Directory path where exported credentials will be stored
         registrar_url: Base URL of the registrar service (required for credential loading)
+        saas_loader: CredentialLoader instance for loading credentials from the registrar (None for local mode)
         essr: ESSR API client for healthKERI mode (None for local mode)
     """
     try:
@@ -54,36 +57,33 @@ async def initialize_watched_credentials(
         mode = "healthKERI" if essr else "local"
         logger.info(f"Startup: Running initialization in {mode} mode")
 
-        # Get all watched identifiers from obvs database
-        watched_oids = []
-        for (cid, aid, oid), observed in hby.db.obvs.getItemIter(keys=(hab.pre,)):
-            if observed.enabled:
-                watched_oids.append((cid, oid))
-
-        if not watched_oids:
-            logger.info("Startup: No watched identifiers found")
-            return
-
-        logger.info(f"Startup: Found {len(watched_oids)} watched identifiers")
-
-        # Process watched identifiers with overall timeout
-        success_count = 0
-        error_count = 0
-
         async with asyncio.timeout(STARTUP_TIMEOUT):
-            if essr:
+            if essr and saas_loader:
                 # HealthKERI mode: Process in parallel (3-5 at a time)
                 success_count, error_count = await _process_hk_mode(
                     hby=hby,
-                    hab=hab,
-                    rgy=rgy,
                     essr=essr,
-                    watched_oids=watched_oids,
-                    export_dir=export_dir,
-                    registrar_url=registrar_url,
+                    saas_loader=saas_loader,
+                )
+
+                logger.info(
+                    f"Startup: Initialization complete - processed {success_count} identifiers "
+                    f"(errors: {error_count})"
                 )
             else:
                 # Local mode: Process sequentially
+                # Get all watched identifiers from obvs database
+                watched_oids = []
+                for (cid, aid, oid), observed in hby.db.obvs.getItemIter(keys=(hab.pre,)):
+                    if observed.enabled:
+                        watched_oids.append((cid, oid))
+
+                if not watched_oids:
+                    logger.info("Startup: No watched identifiers found")
+                    return
+
+                logger.info(f"Startup: Found {len(watched_oids)} watched identifiers")
+
                 success_count, error_count = await _process_local_mode(
                     hby=hby,
                     hab=hab,
@@ -94,10 +94,10 @@ async def initialize_watched_credentials(
                     registrar_url=registrar_url,
                 )
 
-        logger.info(
-            f"Startup: Initialization complete - processed {success_count}/{len(watched_oids)} identifiers "
-            f"(errors: {error_count})"
-        )
+                logger.info(
+                    f"Startup: Initialization complete - processed {success_count}/{len(watched_oids)} identifiers "
+                    f"(errors: {error_count})"
+                )
 
     except asyncio.TimeoutError:
         logger.error(
@@ -175,12 +175,8 @@ async def _process_local_mode(
 
 async def _process_hk_mode(
     hby: Habery,
-    hab: Hab,
-    rgy: Regery,
     essr: APIClient,
-    watched_oids: list[tuple[str, str]],
-    export_dir: str,
-    registrar_url: str | None,
+    saas_loader: SaaSCredentialLoader,
 ) -> tuple[int, int]:
     """
     Process watched identifiers in healthKERI mode (parallel, 5 at a time).
@@ -188,6 +184,26 @@ async def _process_hk_mode(
     Returns:
         Tuple of (success_count, error_count)
     """
+    response = await essr.request(path="/watched/index", method="GET")
+    logger.info(
+        f"WatchedAdjudicationPoller: Query response status: {response.status_code} - {response.text}"
+    )
+    if not response or response.status_code != 200:
+        logger.error(
+            f"WatchedAdjudicationPoller: API error: "
+            f"{response.status_code if response else 'No response'}"
+        )
+        return 0, 0
+
+    data = response.json()
+    watched_oids = [watched[0] for watched in data.get("watched", [])]
+
+    if not watched_oids:
+        logger.info("Startup: No watched identifiers found")
+        return 0, 0
+
+    logger.info(f"Startup: Found {len(watched_oids)} watched identifiers")
+
     success_count = 0
     error_count = 0
 
@@ -197,16 +213,13 @@ async def _process_hk_mode(
         batch = watched_oids[i : i + batch_size]
         tasks = []
 
-        for cid, oid in batch:
+        for oid in batch:
             tasks.append(
                 _process_single_hk_identifier(
                     hby=hby,
-                    hab=hab,
-                    rgy=rgy,
                     essr=essr,
                     oid=oid,
-                    export_dir=export_dir,
-                    registrar_url=registrar_url,
+                    saas_loader=saas_loader
                 )
             )
 
@@ -227,12 +240,9 @@ async def _process_hk_mode(
 
 async def _process_single_hk_identifier(
     hby: Habery,
-    hab: Hab,
-    rgy: Regery,
     essr: APIClient,
     oid: str,
-    export_dir: str,
-    registrar_url: str | None,
+    saas_loader: SaaSCredentialLoader,
 ) -> bool:
     """
     Process a single watched identifier in healthKERI mode.
@@ -244,27 +254,18 @@ async def _process_single_hk_identifier(
         logger.info(f"Startup: Processing {oid}...")
 
         # Adjudicate key state
-        if not await adjudicate_hk(hby=hby, essr=essr, oid=oid):
+        if not await adjudicate_hk(hby=hby, essr=essr, oid=oid, export_dir=saas_loader.export_dir):
             logger.warning(f"Startup: Failed to adjudicate {oid}")
             return False
 
         # Scan KEL for credentials (only if registrar_url is configured)
-        if registrar_url:
-            credential_count = await scan_for_credentials(
-                hby=hby,
-                hab=hab,
-                rgy=rgy,
-                oid=oid,
-                export_dir=export_dir,
-                registrar_url=registrar_url,
-            )
-            logger.info(
-                f"Startup: Completed initialization for {oid} ({credential_count} credentials processed)"
-            )
-        else:
-            logger.info(
-                f"Startup: Completed initialization for {oid} (credential scanning skipped - no registrar URL)"
-            )
+        await saas_loader.search_for_credentials(
+            oid, 0
+        )
+
+        logger.info(
+            f"Startup: Completed initialization for {oid}"
+        )
 
         return True
 
@@ -340,6 +341,7 @@ async def adjudicate_hk(
     hby: Habery,
     essr: APIClient,
     oid: str,
+    export_dir: str
 ) -> bool:
     """
     Adjudicate key state for a watched identifier in healthKERI mode.
@@ -350,6 +352,7 @@ async def adjudicate_hk(
         hby: Habery instance
         essr: ESSR API client
         oid: Object identifier being watched
+        export_dir: Directory to export KEL to
 
     Returns:
         True if successful, False otherwise
@@ -361,6 +364,17 @@ async def adjudicate_hk(
         result = await sync_watched_identifier(hby=hby, essr=essr, aid=oid)
 
         if result.get("success"):
+            # Export KEL to filesystem
+            try:
+                await filing.export_kel(
+                    hby=hby,
+                    aid=oid,
+                    export_dir=export_dir,
+                )
+            except Exception as e:
+                logger.exception(
+                    f"WatchedAdjudicationPoller: Failed to export KEL for {oid}: {e}"
+                )
             logger.debug(f"Startup: Successfully adjudicated {oid}")
             return True
         else:

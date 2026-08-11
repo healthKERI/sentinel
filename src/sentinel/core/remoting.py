@@ -52,7 +52,7 @@ async def sync_watched_identifier(
                     ims = part.content
 
             if data is None or ims is None:
-                print(f"Failed to parse response: {response.text}")
+                logger.error(f"Failed to parse response: {response.text}")
                 return {
                     "success": False,
                     "error": "Invalid response from connection service",
