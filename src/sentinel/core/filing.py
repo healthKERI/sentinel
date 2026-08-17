@@ -7,14 +7,14 @@ CESR format in files and directories.
 
 """
 
-import logging
 from pathlib import Path
 
+from keri import help
 from keri.app import signing
 from keri.app.habbing import Habery
 from keri.vdr.credentialing import Regery
 
-logger = logging.getLogger(__name__)
+logger = help.ogler.getLogger()
 
 
 async def export_kel(hby: Habery, aid: str, export_dir: str) -> bool:

@@ -82,8 +82,10 @@ class SaaSCredentialLoader:
 
     async def _load_credential(self, said):
         if self.rgy.reger.creds.get(keys=(said,)) is not None:
-            logger.info(f"SaaSCredentialLoader: credential {said} already exists")
-            return
+            logger.warning(
+                f"SaaSCredentialLoader: credential {said} already exists, checking for revocation"
+            )
+
         path = f"/registrar/credential/{said}?registry=true&tel=true"
         try:
             response = await self.essr.request(path=path, method="GET")
