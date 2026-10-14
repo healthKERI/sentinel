@@ -19,7 +19,7 @@ name = "sentinel"
 version = "0.0.1"
 description = "KERI local watcher using the healthKERI Watcher Network or direct witness querying."
 readme = "README.md"
-requires-python = ">=3.13.3"
+requires-python = ">=3.12.6"
 authors = [
     {name = "Phil Feairheller", email = "phil@healthKERI.com"}
 ]
