@@ -8,6 +8,7 @@ import asyncio
 import datetime
 import logging
 from collections import namedtuple
+from typing import Optional
 from urllib import parse
 from urllib.parse import urlparse
 
@@ -431,7 +432,7 @@ class Oobiery:
         self.hby.db.oobis.put(keys=(oobi,), val=obr)
 
 
-def load_oobi(hby, oobi: str, alias: str):
+def load_oobi(hby, oobi: str, alias: Optional[str] = None):
     org = connecting.Organizer(hby=hby)
     purl = urlparse(oobi)
     match = OOBI_RE.match(purl.path)
@@ -448,6 +449,11 @@ def load_oobi(hby, oobi: str, alias: str):
         raise ValueError(f"Invalid OOBI URL {oobi} for {aid}")
 
     hby.kvy.processEscrows()
-    org.update(pre=aid, data=dict(alias=alias, oobi=oobi))
+
+    if alias is not None:
+        org.update(pre=aid, data=dict(alias=alias, oobi=oobi))
+
+    obr = basing.OobiRecord(cid=aid, date=helping.nowIso8601())
+    hby.db.oobis.put(keys=(oobi,), val=obr)
 
     return aid
